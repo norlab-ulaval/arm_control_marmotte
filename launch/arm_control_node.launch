@@ -1,0 +1,9 @@
+<launch>
+    <include file="$(find kinova_bringup)/launch/kinova_robot.launch" />
+    <node name="joy_arm" pkg="joy" type="joy_node">
+        <param name="dev" value="/dev/input/js0" />
+        <param name="deadzone" value="0.1" />
+        <param name="autorepeat_rate" value="20.0" />
+    </node>
+    <node name="arm_control_marmotte" pkg="arm_control_marmotte" type="arm_control_node.py"/>
+</launch>
