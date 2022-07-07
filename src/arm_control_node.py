@@ -19,20 +19,25 @@ class ArmControlNode():
         self.cmd_pub = rospy.Publisher("/j2n6s300_driver/in/cartesian_velocity_with_finger_velocity", PoseVelocityWithFingerVelocity, queue_size=10)
         self.joy_sub = rospy.Subscriber('/joy_arm', Joy, self.joy_callback, queue_size=1)
         self.home_robot = rospy.ServiceProxy('/j2n6s300_driver/in/home_arm', HomeArm)
-        self.init_cmd()
+        self.init_cmd(False)
         self.keep_publishing = True
         self.send_cmd()
 
-    def init_cmd(self):
+    def init_cmd(self, deadman_called):
         self.cmd.twist_linear_x = 0.0
         self.cmd.twist_linear_y = 0.0
         self.cmd.twist_linear_z = 0.0
         self.cmd.twist_angular_x = 0.0
         self.cmd.twist_angular_y = 0.0
         self.cmd.twist_angular_z = 0.0
-        self.cmd.finger1 = -100.0
-        self.cmd.finger2 = -100.0
-        self.cmd.finger3 = -100.0
+        if deadman_called:
+            self.cmd.finger1 = self.cmd.finger1
+            self.cmd.finger2 = self.cmd.finger2
+            self.cmd.finger3 = self.cmd.finger3
+        else:
+            self.cmd.finger1 = -100.0
+            self.cmd.finger2 = -100.0
+            self.cmd.finger3 = -100.0
 
     def joy_callback(self, msg):
         '''
@@ -86,7 +91,7 @@ class ArmControlNode():
             if msg.buttons[7]:
                 _ = self.home_robot()
         else:
-            self.init_cmd()
+            self.init_cmd(True)
 
     def send_cmd(self):
         while self.keep_publishing:
@@ -94,7 +99,7 @@ class ArmControlNode():
             self.rate.sleep()
 
     def on_shutdown(self):
-        self.init_cmd()
+        self.init_cmd(False)
         self.keep_publishing = False
 
 
