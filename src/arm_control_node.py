@@ -5,7 +5,7 @@ import time
 from sensor_msgs.msg import Joy, JointState
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Int16
-from kinova_msgs.msg import PoseVelocityWithFingers
+from kinova_msgs.msg import PoseVelocityWithFingerVelocity
 from kinova_msgs.srv import HomeArm
 
 
@@ -14,10 +14,10 @@ class ArmControlNode():
         rospy.init_node('arm_control', anonymous=False)
         self.rate = rospy.Rate(100)
         rospy.on_shutdown(self.on_shutdown)
-        self.cmd = PoseVelocityWithFingers()
+        self.cmd = PoseVelocityWithFingerVelocity()
         self.speed_ratio = 1.0
-        self.cmd_pub = rospy.Publisher("/j2n6s300_driver/in/cartesian_velocity_with_fingers", PoseVelocityWithFingers, queue_size=10)
-        self.joy_sub = rospy.Subscriber('/joy', Joy, self.joy_callback, queue_size=1)
+        self.cmd_pub = rospy.Publisher("/j2n6s300_driver/in/cartesian_velocity_with_finger_velocity", PoseVelocityWithFingerVelocity, queue_size=10)
+        self.joy_sub = rospy.Subscriber('/joy_arm', Joy, self.joy_callback, queue_size=1)
         self.home_robot = rospy.ServiceProxy('/j2n6s300_driver/in/home_arm', HomeArm)
         self.init_cmd()
         self.keep_publishing = True
@@ -30,7 +30,9 @@ class ArmControlNode():
         self.cmd.twist_angular_x = 0.0
         self.cmd.twist_angular_y = 0.0
         self.cmd.twist_angular_z = 0.0
-        self.cmd.fingers_closure_percentage = 0.0
+        self.cmd.finger1 = -100.0
+        self.cmd.finger2 = -100.0
+        self.cmd.finger3 = -100.0
 
     def joy_callback(self, msg):
         '''
@@ -65,10 +67,23 @@ class ArmControlNode():
             self.cmd.twist_angular_y = msg.axes[3]*self.speed_ratio
             self.cmd.twist_angular_z = msg.axes[0]*self.speed_ratio
             if msg.buttons[0]:
-                self.cmd.fingers_closure_percentage = 100
+                # self.cmd.fingers_closure_percentage = 100
+                self.cmd.finger1 = 100.0
+                self.cmd.finger2 = 100.0
+                self.cmd.finger3 = 100.0
             elif msg.buttons[2]:
-                self.cmd.fingers_closure_percentage = 0
-            if msg.buttons[1]:
+                self.cmd.finger1 = -100.0
+                self.cmd.finger2 = -100.0
+                self.cmd.finger3 = -100.0
+            elif msg.buttons[1]:
+                self.cmd.finger1 = 100.0
+                self.cmd.finger2 = 100.0
+                self.cmd.finger3 = -100.0
+            elif msg.buttons[3]:
+                self.cmd.finger1 = -100.0
+                self.cmd.finger2 = -100.0
+                self.cmd.finger3 = -100.0
+            if msg.buttons[7]:
                 _ = self.home_robot()
         else:
             self.init_cmd()
