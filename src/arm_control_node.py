@@ -17,7 +17,7 @@ class ArmControlNode():
         self.cmd = PoseVelocityWithFingers()
         self.speed_ratio = 1.0
         self.cmd_pub = rospy.Publisher("/j2n6s300_driver/in/cartesian_velocity_with_fingers", PoseVelocityWithFingers, queue_size=10)
-        self.joy_sub = rospy.Subscriber('/joy', Joy, self.joy_callback)
+        self.joy_sub = rospy.Subscriber('/joy', Joy, self.joy_callback, queue_size=1)
         self.home_robot = rospy.ServiceProxy('/j2n6s300_driver/in/home_arm', HomeArm)
         self.init_cmd()
         self.keep_publishing = True
@@ -65,12 +65,13 @@ class ArmControlNode():
             self.cmd.twist_angular_y = msg.axes[3]*self.speed_ratio
             self.cmd.twist_angular_z = msg.axes[0]*self.speed_ratio
             if msg.buttons[0]:
-                if self.cmd.fingers_closure_percentage == 0:
-                    self.cmd.fingers_closure_percentage = 100
-                else:
-                    self.cmd.fingers_closure_percentage = 0
+                self.cmd.fingers_closure_percentage = 100
+            elif msg.buttons[2]:
+                self.cmd.fingers_closure_percentage = 0
             if msg.buttons[1]:
                 _ = self.home_robot()
+        else:
+            self.init_cmd()
 
     def send_cmd(self):
         while self.keep_publishing:

@@ -5,5 +5,5 @@
         <param name="deadzone" value="0.1" />
         <param name="autorepeat_rate" value="20.0" />
     </node>
-    <node name="arm_control_marmotte" pkg="arm_control_marmotte" type="arm_control_node.py"/>
+    <node name="arm_control_marmotte" pkg="arm_control_marmotte" type="arm_control_node.py" output="screen"/>
 </launch>
