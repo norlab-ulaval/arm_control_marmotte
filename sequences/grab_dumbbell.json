@@ -1,0 +1,26 @@
+{
+    "positions": 
+    [
+        {
+            "type": "cartesian",
+            "reference": "relative",
+            "value": [0.15, 0.0, 0.0, 0.0, 0.0, 0.0]
+        },
+        {
+            "type": "gripper",
+            "reference": "absolute",
+            "value": [100, 100, 100]
+        },
+        {
+            "type": "cartesian",
+            "reference": "relative",
+            "value": [0.0, 0.0, 0.3, 0.0, 0.0, 0.0]
+        },
+        {
+            "type": "cartesian",
+            "reference": "relative",
+            "value": [-0.15, 0.0, 0.0, 0.0, 0.0, 0.0]
+        }
+        
+    ]
+}
