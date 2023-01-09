@@ -1,9 +1,17 @@
 <launch>
-    <arg name="use_urdf" default="true"/>
-    <arg name="use_jaco_v1_fingers" default="false"/>
-    <include file="$(find kinova_bringup)/launch/kinova_robot.launch">
-	<arg name="use_urdf" value="$(arg use_urdf)"/>
-	<arg name="use_jaco_v1_fingers" value="$(arg use_jaco_v1_fingers)"/>
+    <arg name="arm" default="gen3"/>
+    <arg name="gripper" default="robotiq_2f_85"/>
+    <arg name="prefix" default=""/>
+    <arg name="ip_address" default="192.168.1.10"/>
+    <include file="$(find kortex_driver)/launch/kortex_driver.launch">
+	<arg name="arm" value="$(arg arm)"/>
+	<arg name="gripper" value="$(arg gripper)"/>
+    <arg name="prefix" default="$(arg prefix)"/>
+    <arg name="ip_address" default="$(arg ip_address)"/>
     </include>
     <node name="arm_control_marmotte" pkg="arm_control_marmotte" type="arm_control_node.py" output="screen"/>
+    <node pkg="joy" type="joy_node" name="joy_arm" >
+         <param name="deadzone" value="0.05" />
+         <remap from="joy" to="joy_arm" />
+    </node>
 </launch>
