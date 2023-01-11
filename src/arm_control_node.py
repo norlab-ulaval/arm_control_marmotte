@@ -48,12 +48,13 @@ sequence_files = {
     }
 viewpoint_joint_state = [195.89, 168.79, 47.21, 185.70, 65.55, 139.11]
 dumbell_joint_state = [189.1484, 261.7324,  58.8002, 155.5835,  33.3919, 103.7543]
+home_joint_angles = [90.0, 0.0, 180.0, 215.0, 0.0, 52.5, 90.0]
 
 class ArmControlNode():
 
     def __init__(self):
         rospy.init_node('arm_control', anonymous=False)
-        rate = rospy.Rate(100)
+        self.rate = rospy.Rate(100)
 
         np.set_printoptions(precision=4, suppress=True)
 
@@ -64,6 +65,7 @@ class ArmControlNode():
         self.finger_positions = []
         self.cmd = TwistCommand()
         self.init_cmd()
+        self.deadman = False
 
         # Arguments
         self.speed_ratio = rospy.get_param("speed_ratio", default=1.0)
@@ -82,52 +84,57 @@ class ArmControlNode():
 
         # Service calls
         clear_faults_full_name = '/' + self.prefix + '/base/clear_faults'
+        # rospy.loginfo("Service_name")
+        # rospy.loginfo(clear_faults_full_name)
         rospy.wait_for_service(clear_faults_full_name)
         self.clear_faults = rospy.ServiceProxy(clear_faults_full_name, Base_ClearFaults)
 
         read_action_full_name = '/' + self.prefix + '/base/read_action'
+        # rospy.loginfo("Service_name")
+        # rospy.loginfo(read_action_full_name)
         rospy.wait_for_service(read_action_full_name)
         self.read_action = rospy.ServiceProxy(read_action_full_name, ReadAction)
 
         execute_action_full_name = '/' + self.prefix + '/base/execute_action'
+        # rospy.loginfo("Service_name")
+        # rospy.loginfo(execute_action_full_name)
         rospy.wait_for_service(execute_action_full_name)
         self.execute_action = rospy.ServiceProxy(execute_action_full_name, ExecuteAction)
 
         set_cartesian_reference_frame_full_name = '/' + self.prefix + '/control_config/set_cartesian_reference_frame'
+        # rospy.loginfo("Service_name")
+        # rospy.loginfo(set_cartesian_reference_frame_full_name)
         rospy.wait_for_service(set_cartesian_reference_frame_full_name)
         self.set_cartesian_reference_frame = rospy.ServiceProxy(set_cartesian_reference_frame_full_name,
                                                                 SetCartesianReferenceFrame)
 
         send_gripper_command_full_name = '/' + self.prefix + '/base/send_gripper_command'
+        # rospy.loginfo("Service_name")
+        # rospy.loginfo(send_gripper_command_full_name)
         rospy.wait_for_service(send_gripper_command_full_name)
         self.send_gripper_command = rospy.ServiceProxy(send_gripper_command_full_name, SendGripperCommand)
 
         activate_publishing_of_action_notification_full_name = '/' + self.prefix + '/base/activate_publishing_of_action_topic'
+        # rospy.loginfo("Service_name")
+        # rospy.loginfo(activate_publishing_of_action_notification_full_name)
         rospy.wait_for_service(activate_publishing_of_action_notification_full_name)
         self.activate_publishing_of_action_notification = rospy.ServiceProxy(
             activate_publishing_of_action_notification_full_name, OnNotificationActionTopic)
 
+        play_joint_trajectory_full_name = '/' + self.prefix + '/base/play_joint_trajectory'
+        # rospy.loginfo("Service_name")
+        # rospy.loginfo(play_joint_trajectory_full_name)
+        rospy.wait_for_service(play_joint_trajectory_full_name)
+        self.play_joint_trajectory = rospy.ServiceProxy(play_joint_trajectory_full_name, PlayJointTrajectory)
 
-        # self.home_robot = rospy.ServiceProxy('/' + self.prefix + 'driver/in/home_arm', HomeArm)
-        # self.clear_trajectories = rospy.ServiceProxy('/' + self.prefix + 'driver/in/clear_trajectories', ClearTrajectories)
-        # self.zero_torques = rospy.ServiceProxy('/' + self.prefix + 'driver/in/set_zero_torques', ZeroTorques)
-        # self.start_force_control = rospy.ServiceProxy('/' + self.prefix + 'driver/in/start_force_control', Start)
-        # self.stop_force_control = rospy.ServiceProxy('/' + self.prefix + 'driver/in/stop_force_control', Stop)
-        # self.start_robot = rospy.ServiceProxy('/' + self.prefix + 'driver/in/start', Start)
-        # self.stop_robot = rospy.ServiceProxy('/' + self.prefix + 'driver/in/stop', Stop)
+        validate_waypoint_list_full_name = '/' + self.prefix + '/base/validate_waypoint_list'
+        rospy.wait_for_service(validate_waypoint_list_full_name)
+        self.validate_waypoint_list = rospy.ServiceProxy(validate_waypoint_list_full_name, ValidateWaypointList)
 
-        # # Action clients
-        # self.pose_action_client = actionlib.SimpleActionClient('/' + self.prefix + 'driver/pose_action/tool_pose', ArmPoseAction)
-        # self.pose_action_client.wait_for_server()
-        # self.joints_action_client = actionlib.SimpleActionClient('/' + self.prefix + 'driver/joints_action/joint_angles', ArmJointAnglesAction)
-        # self.joints_action_client.wait_for_server()
-        # self.gripper_client = actionlib.SimpleActionClient('/' + self.prefix + 'driver/fingers_action/finger_positions', SetFingersPositionAction)
-        # self.gripper_client.wait_for_server()
-
-        # self.start_robot()
         while not rospy.is_shutdown():
-            self.cmd_pub.publish(self.cmd)
-            rate.sleep()
+            if self.deadman:
+                self.cmd_pub.publish(self.cmd)
+            self.rate.sleep()
 
         self.init_cmd()
 
@@ -152,6 +159,7 @@ class ArmControlNode():
                 rospy.loginfo("Received ACTION_ABORT notification")
                 return False
             else:
+                # rospy.loginfo("waiting...")
                 time.sleep(0.01)
     # def move_joints(self, angle_set):
     #
@@ -236,10 +244,74 @@ class ArmControlNode():
     #         print("Position {} achieved.".format(i))
     #         time.sleep(0.5)
 
+    def send_joint_angles(self, joint_angles):
+        self.last_action_notif_type = None
+
+        req = ExecuteActionRequest()
+
+        trajectory = WaypointList()
+        waypoint = Waypoint()
+        angularWaypoint = AngularWaypoint()
+
+        # Angles to send the arm to vertical position (all zeros)
+        for i in joint_angles:
+            angularWaypoint.angles.append(i)
+
+        # Each AngularWaypoint needs a duration and the global duration (from WaypointList) is disregarded. 
+        # If you put something too small (for either global duration or AngularWaypoint duration), the trajectory will be rejected.
+        angular_duration = 0
+        angularWaypoint.duration = angular_duration
+
+        # Initialize Waypoint and WaypointList
+        waypoint.oneof_type_of_waypoint.angular_waypoint.append(angularWaypoint)
+        trajectory.duration = 0
+        trajectory.use_optimal_blending = False
+        trajectory.waypoints.append(waypoint)
+
+        try:
+            res = self.validate_waypoint_list(trajectory)
+        except rospy.ServiceException:
+            rospy.logerr("Failed to call ValidateWaypointList")
+            return False
+
+        error_number = len(res.output.trajectory_error_report.trajectory_error_elements)
+        MAX_ANGULAR_DURATION = 30
+
+        while (error_number >= 1 and angular_duration != MAX_ANGULAR_DURATION) :
+            angular_duration += 1
+            trajectory.waypoints[0].oneof_type_of_waypoint.angular_waypoint[0].duration = angular_duration
+
+            try:
+                res = self.validate_waypoint_list(trajectory)
+            except rospy.ServiceException:
+                rospy.logerr("Failed to call ValidateWaypointList")
+                return False
+
+            error_number = len(res.output.trajectory_error_report.trajectory_error_elements)
+
+        if (angular_duration == MAX_ANGULAR_DURATION) :
+            # It should be possible to reach position within 30s
+            # WaypointList is invalid (other error than angularWaypoint duration)
+            rospy.loginfo("WaypointList is invalid")
+            return False
+
+        req.input.oneof_action_parameters.execute_waypoint_list.append(trajectory)
+        
+        # Send the angles
+        rospy.loginfo("Sending the robot home...")
+        try:
+            self.execute_action(req)
+        except rospy.ServiceException:
+            rospy.logerr("Failed to call ExecuteWaypointjectory")
+            return False
+        else:
+            return True
+
 
     def joy_callback(self, msg):
 
         if msg.buttons[4]:
+            self.deadman = True
             # Arm control joysticks
             self.cmd.twist.linear_x = msg.axes[7]*self.speed_ratio
             self.cmd.twist.linear_y = msg.axes[6]*self.speed_ratio
@@ -265,29 +337,9 @@ class ArmControlNode():
 
             # Predefined positions
             if msg.buttons[7]:
-                self.last_action_notif_type=None
-                req = ReadActionRequest()
-                req.input.identifier = self.HOME_ACTION_IDENTIFIER
-                rospy.loginfo(req)
-                try:
-                    res = self.read_action(req)
-                except rospy.ServiceException:
-                    rospy.logerr("Failed to call ReadAction")
-                    return False
-                # Execute the HOME action if we could read it
-                else:
-                    # What we just read is the input of the ExecuteAction service
-                    req = ExecuteActionRequest()
-                    req.input = res.output
-                    rospy.loginfo("Sending the robot home...")
-                    try:
-                        self.execute_action(req)
-                    except rospy.ServiceException:
-                        rospy.logerr("Failed to call ExecuteAction")
-                        return False
-                    else:
-                        return self.wait_for_action_end_or_abort()
-
+                self.deadman = False
+                rospy.loginfo("Homing")
+                _ = self.send_joint_angles(home_joint_angles)
 
             # elif msg.buttons[6]:
             #     _ = self.start_force_control()
@@ -304,8 +356,11 @@ class ArmControlNode():
             #     _ = self.stop_robot()
             #     _ = self.clear_trajectories()
         else:
+            if self.deadman:
+                self.init_cmd()
+                self.rate.sleep()
+                self.deadman = False
             # _ = self.start_robot()
-            self.init_cmd()
 
         # if msg.buttons[5]:
         #     print(" Joint positions : {} \n  Cartesian pose : {}\nFinger positions : {}\n".format(self.joint_angles, self.cartesian_pose, self.finger_positions))

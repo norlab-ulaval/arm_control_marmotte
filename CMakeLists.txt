@@ -8,8 +8,7 @@ project(arm_control_marmotte)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  kinova_bringup
-  kinova_msgs
+  kortex_driver
   roscpp
   rospy
 )
@@ -106,7 +105,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES arm_control_marmotte
-  CATKIN_DEPENDS kinova_bringup kinova_msgs roscpp rospy
+  CATKIN_DEPENDS kortex_driver roscpp rospy
 #  DEPENDS system_lib
 )
 
