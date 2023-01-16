@@ -66,6 +66,7 @@ class ArmControlNode():
         self.cmd = TwistCommand()
         self.init_cmd()
         self.deadman = False
+        self.fingers_moving = False
 
         # Arguments
         self.speed_ratio = rospy.get_param("speed_ratio", default=1.0)
@@ -313,36 +314,72 @@ class ArmControlNode():
         if msg.buttons[4]:
             self.deadman = True
             # Arm control joysticks
-            self.cmd.twist.linear_x = msg.axes[7]*self.speed_ratio
-            self.cmd.twist.linear_y = msg.axes[6]*self.speed_ratio
+            self.cmd.twist.linear_x = msg.axes[6]*self.speed_ratio
+            self.cmd.twist.linear_y = msg.axes[7]*self.speed_ratio * -1.0
             self.cmd.twist.linear_z = msg.axes[1]*self.speed_ratio
             self.cmd.twist.angular_x = msg.axes[4]*self.speed_ratio
             self.cmd.twist.angular_y = msg.axes[3]*self.speed_ratio
             self.cmd.twist.angular_z = -msg.axes[0]*self.speed_ratio
 
-            # # Fingers control
-            # if msg.axes[5] < 0:
-            #     # self.cmd.fingers_closure_percentage = 100
-            #     self.cmd.finger1 = 100.0
-            #     self.cmd.finger2 = 100.0
-            #     self.cmd.finger3 = 100.0
-            # elif msg.axes[2] < 0:
-            #     self.cmd.finger1 = -100.0
-            #     self.cmd.finger2 = -100.0
-            #     self.cmd.finger3 = -100.0
-            # else:
-            #     self.cmd.finger1 = 0.0
-            #     self.cmd.finger2 = 0.0
-            #     self.cmd.finger3 = 0.0
+            # Fingers control
+            if msg.axes[5] < 0:
+                req = SendGripperCommandRequest()
+                finger = Finger()
+                finger.finger_identifier = 0
+                finger.value = 1.0
+                req.input.gripper.finger.append(finger)
+                req.input.mode = GripperMode.GRIPPER_SPEED
 
-            # Predefined positions
+                try:
+                    self.send_gripper_command(req)
+                except rospy.ServiceException:
+                    rospy.logerr("Failed to call SendGripperCommand.")
+                else:
+                    self.fingers_moving = True
+            elif msg.axes[2] < 0:
+                req = SendGripperCommandRequest()
+                finger = Finger()
+                finger.finger_identifier = 0
+                finger.value = -1.0
+                req.input.gripper.finger.append(finger)
+                req.input.mode = GripperMode.GRIPPER_SPEED
+
+                try:
+                    self.send_gripper_command(req)
+                except rospy.ServiceException:
+                    rospy.logerr("Failed to call SendGripperCommand.")
+                else:
+                    self.fingers_moving = True
+            elif self.fingers_moving:
+                req = SendGripperCommandRequest()
+                finger = Finger()
+                finger.finger_identifier = 0
+                finger.value = 0.0
+                req.input.gripper.finger.append(finger)
+                req.input.mode = GripperMode.GRIPPER_SPEED
+
+                try:
+                    self.send_gripper_command(req)
+                except rospy.ServiceException:
+                    rospy.logerr("Failed to call SendGripperCommand.")
+                else:
+                    self.fingers_moving = False
+
+            # Home position
             if msg.buttons[7]:
                 self.deadman = False
                 rospy.loginfo("Homing")
                 _ = self.send_joint_angles(home_joint_angles)
 
-            # elif msg.buttons[6]:
-            #     _ = self.start_force_control()
+            # Clear faults
+            elif msg.buttons[6]:
+                try:
+                    self.clear_faults()
+                except rospy.ServiceException:
+                    rospy.logerr("Failed to call ClearFaults.")
+                else:
+                    rospy.loginfo("Cleared the faults succesfully.")
+                    
             # elif msg.buttons[3]:    # Y
             #     _ = self.move_joints(viewpoint_joint_state)
             # elif msg.buttons[0]:    # A
@@ -360,7 +397,6 @@ class ArmControlNode():
                 self.init_cmd()
                 self.rate.sleep()
                 self.deadman = False
-            # _ = self.start_robot()
 
         # if msg.buttons[5]:
         #     print(" Joint positions : {} \n  Cartesian pose : {}\nFinger positions : {}\n".format(self.joint_angles, self.cartesian_pose, self.finger_positions))
