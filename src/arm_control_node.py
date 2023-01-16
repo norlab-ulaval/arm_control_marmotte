@@ -49,6 +49,7 @@ sequence_files = {
 viewpoint_joint_state = [195.89, 168.79, 47.21, 185.70, 65.55, 139.11]
 dumbell_joint_state = [189.1484, 261.7324,  58.8002, 155.5835,  33.3919, 103.7543]
 home_joint_angles = [90.0, 0.0, 180.0, 215.0, 0.0, 52.5, 90.0]
+test_cartesian_pose = [0.1, -0.45, 0.55, -90.0, -180.0, 180.0]
 
 class ArmControlNode():
 
@@ -122,11 +123,11 @@ class ArmControlNode():
         self.activate_publishing_of_action_notification = rospy.ServiceProxy(
             activate_publishing_of_action_notification_full_name, OnNotificationActionTopic)
 
-        play_joint_trajectory_full_name = '/' + self.prefix + '/base/play_joint_trajectory'
-        # rospy.loginfo("Service_name")
-        # rospy.loginfo(play_joint_trajectory_full_name)
-        rospy.wait_for_service(play_joint_trajectory_full_name)
-        self.play_joint_trajectory = rospy.ServiceProxy(play_joint_trajectory_full_name, PlayJointTrajectory)
+        # play_joint_trajectory_full_name = '/' + self.prefix + '/base/play_joint_trajectory'
+        # # rospy.loginfo("Service_name")
+        # # rospy.loginfo(play_joint_trajectory_full_name)
+        # rospy.wait_for_service(play_joint_trajectory_full_name)
+        # self.play_joint_trajectory = rospy.ServiceProxy(play_joint_trajectory_full_name, PlayJointTrajectory)
 
         validate_waypoint_list_full_name = '/' + self.prefix + '/base/validate_waypoint_list'
         rospy.wait_for_service(validate_waypoint_list_full_name)
@@ -182,22 +183,57 @@ class ArmControlNode():
     #         return None
 
     
-    # def move_cartesian(self, pose):
-    #
-    #     goal = ArmPoseGoal()
-    #     goal.pose.header = Header(frame_id=(self.prefix + "link_base"))
-    #     goal.pose.pose.position = Point(x=pose[0], y=pose[1], z=pose[2])
-    #     orientation = quaternion_from_euler(radians(pose[3]), radians(pose[4]), radians(pose[5]))
-    #     goal.pose.pose.orientation = Quaternion(x=orientation[0], y=orientation[1], z=orientation[2], w=orientation[3])
-    #
-    #     self.pose_action_client.send_goal(goal)
-    #
-    #     if self.pose_action_client.wait_for_result(rospy.Duration(200.0)):
-    #         return self.pose_action_client.get_result()
-    #     else:
-    #         self.pose_action_client.cancel_all_goals()
-    #         rospy.logwarn('        the cartesian action timed-out')
-    #         return None
+    def send_cartesian_pose(self, pose):
+        req = ExecuteActionRequest()
+
+        trajectory = WaypointList()
+        waypoint = Waypoint()
+        cartesianWaypoint = CartesianWaypoint()
+
+        cartesianWaypoint.pose.x = pose[0]
+        cartesianWaypoint.pose.y = pose[1]
+        cartesianWaypoint.pose.z = pose[2]
+        cartesianWaypoint.pose.theta_x = pose[3]
+        cartesianWaypoint.pose.theta_y = pose[4]
+        cartesianWaypoint.pose.theta_z = pose[5]
+
+        # Each CartesianWaypoint needs a reference frame, a maximum linear and angular velocity and the blending radius (from WaypointList) is disregarded. 
+        # If you put something too small (for either velocity or blending radius), the trajectory will be rejected.
+        blending_radius = 0
+        cartesianWaypoint.reference_frame = CartesianReferenceFrame.CARTESIAN_REFERENCE_FRAME_BASE
+        cartesianWaypoint.maximum_linear_velocity = 0.5
+        cartesianWaypoint.maximum_angular_velocity = 30.0
+        cartesianWaypoint.blending_radius = blending_radius
+
+        # Initialize Waypoint and WaypointList
+        waypoint.oneof_type_of_waypoint.cartesian_waypoint.append(cartesianWaypoint)
+        trajectory.duration = 0
+        trajectory.use_optimal_blending = True
+        trajectory.waypoints.append(waypoint)
+        try:
+            res = self.validate_waypoint_list(trajectory)
+        except rospy.ServiceException:
+            rospy.logerr("Failed to call ValidateWaypointList")
+            return False
+        error_number = len(res.output.trajectory_error_report.trajectory_error_elements)
+
+        if (error_number >= 1) :
+            # It should be possible to reach position within 30s
+            # WaypointList is invalid (other error than angularWaypoint duration)
+            rospy.loginfo("WaypointList is invalid")
+            return False
+        
+        req.input.oneof_action_parameters.execute_waypoint_list.append(trajectory)
+        
+        # Send the cartesian pose
+        rospy.loginfo("Sending the robot somewhere...")
+        try:
+            self.execute_action(req)
+        except rospy.ServiceException:
+            rospy.logerr("Failed to call ExecuteWaypointjectory")
+            return False
+        else:
+            return True
 
         
     # def move_gripper(self, finger_positions):
@@ -380,8 +416,10 @@ class ArmControlNode():
                 else:
                     rospy.loginfo("Cleared the faults succesfully.")
                     
-            # elif msg.buttons[3]:    # Y
-            #     _ = self.move_joints(viewpoint_joint_state)
+            elif msg.buttons[3]:    # Y
+                self.deadman = False
+                rospy.loginfo("Moving Somewhere")
+                _ = self.send_cartesian_pose(test_cartesian_pose)
             # elif msg.buttons[0]:    # A
             #     _ = self.execute_sequence("analyze_dumbbell")
             # elif msg.buttons[1]:    # B
