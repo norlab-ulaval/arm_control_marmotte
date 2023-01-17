@@ -39,16 +39,18 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler
     buttons[9] -> Left joystick press
     buttons[10] -> Right joystick press
 '''
-
+MAX_FINGER_POS = 0.8
 root = rospkg.RosPack().get_path('arm_control_marmotte')
 sequence_files = {
     'grab_dumbbell': root+"/sequences/grab_dumbbell.json", 
     'analyze_dumbbell': root+"/sequences/analyze_dumbbell.json", 
-    'open_door': root+"/sequences/open_door.json"  
+    'open_door': root+"/sequences/open_door.json",
+    'test_sequence': root+"/sequences/test_sequence.json"  
     }
 viewpoint_joint_state = [195.89, 168.79, 47.21, 185.70, 65.55, 139.11]
 dumbell_joint_state = [189.1484, 261.7324,  58.8002, 155.5835,  33.3919, 103.7543]
 home_joint_angles = [90.0, 0.0, 180.0, 215.0, 0.0, 52.5, 90.0]
+retract_pose_joint_angles = [90.0, 330.0, 180.0, 215.0, 0.0, 305.0, 90.0]
 test_cartesian_pose = [0.1, -0.45, 0.55, -90.0, -180.0, 180.0]
 
 class ArmControlNode():
@@ -60,10 +62,9 @@ class ArmControlNode():
         np.set_printoptions(precision=4, suppress=True)
 
         # Variables
-        self.HOME_ACTION_IDENTIFIER = 2
-        self.joint_angles = []
-        self.cartesian_pose = []
-        self.finger_positions = []
+        self.current_joint_angles = []
+        self.current_cartesian_pose = []
+        self.current_finger_positions = []
         self.cmd = TwistCommand()
         self.init_cmd()
         self.deadman = False
@@ -80,58 +81,51 @@ class ArmControlNode():
         self.action_topic_sub = rospy.Subscriber("/" + self.prefix + "/action_topic", ActionNotification,
                                                  self.cb_action_topic)
         self.last_action_notif_type = None
-        # self.joint_angles_sub = rospy.Subscriber('/' + self.prefix +'driver/out/joint_angles', JointAngles, callback=self.joint_angles_callback, queue_size=1)
-        # self.cartesian_pose_sub = rospy.Subscriber('/' + self.prefix +'driver/out/tool_pose', PoseStamped, callback=self.cartesian_pose_callback, queue_size=1)
-        # self.finger_pose_sub = rospy.Subscriber('/' + self.prefix +'driver/out/finger_position', FingerPosition, callback=self.finger_positions_callback, queue_size=1)
+        self.base_feedback_sub = rospy.Subscriber('/' + self.prefix +'/base_feedback', BaseCyclic_Feedback, callback=self.base_feedback_callback, queue_size=1)
+        self.joint_state_sub = rospy.Subscriber('/' + self.prefix +'/base_feedback/joint_state', JointState, callback=self.joint_state_callback, queue_size=1)
+        # self.joint_state_sub = rospy.Subscriber('/' + self.prefix +'/joint_states', FingerPosition, callback=self.finger_positions_callback, queue_size=1)
 
         # Service calls
         clear_faults_full_name = '/' + self.prefix + '/base/clear_faults'
-        # rospy.loginfo("Service_name")
-        # rospy.loginfo(clear_faults_full_name)
         rospy.wait_for_service(clear_faults_full_name)
         self.clear_faults = rospy.ServiceProxy(clear_faults_full_name, Base_ClearFaults)
 
         read_action_full_name = '/' + self.prefix + '/base/read_action'
-        # rospy.loginfo("Service_name")
-        # rospy.loginfo(read_action_full_name)
         rospy.wait_for_service(read_action_full_name)
         self.read_action = rospy.ServiceProxy(read_action_full_name, ReadAction)
 
         execute_action_full_name = '/' + self.prefix + '/base/execute_action'
-        # rospy.loginfo("Service_name")
-        # rospy.loginfo(execute_action_full_name)
         rospy.wait_for_service(execute_action_full_name)
         self.execute_action = rospy.ServiceProxy(execute_action_full_name, ExecuteAction)
 
         set_cartesian_reference_frame_full_name = '/' + self.prefix + '/control_config/set_cartesian_reference_frame'
-        # rospy.loginfo("Service_name")
-        # rospy.loginfo(set_cartesian_reference_frame_full_name)
         rospy.wait_for_service(set_cartesian_reference_frame_full_name)
         self.set_cartesian_reference_frame = rospy.ServiceProxy(set_cartesian_reference_frame_full_name,
                                                                 SetCartesianReferenceFrame)
 
         send_gripper_command_full_name = '/' + self.prefix + '/base/send_gripper_command'
-        # rospy.loginfo("Service_name")
-        # rospy.loginfo(send_gripper_command_full_name)
         rospy.wait_for_service(send_gripper_command_full_name)
         self.send_gripper_command = rospy.ServiceProxy(send_gripper_command_full_name, SendGripperCommand)
 
         activate_publishing_of_action_notification_full_name = '/' + self.prefix + '/base/activate_publishing_of_action_topic'
-        # rospy.loginfo("Service_name")
-        # rospy.loginfo(activate_publishing_of_action_notification_full_name)
         rospy.wait_for_service(activate_publishing_of_action_notification_full_name)
         self.activate_publishing_of_action_notification = rospy.ServiceProxy(
             activate_publishing_of_action_notification_full_name, OnNotificationActionTopic)
 
-        # play_joint_trajectory_full_name = '/' + self.prefix + '/base/play_joint_trajectory'
-        # # rospy.loginfo("Service_name")
-        # # rospy.loginfo(play_joint_trajectory_full_name)
-        # rospy.wait_for_service(play_joint_trajectory_full_name)
-        # self.play_joint_trajectory = rospy.ServiceProxy(play_joint_trajectory_full_name, PlayJointTrajectory)
-
         validate_waypoint_list_full_name = '/' + self.prefix + '/base/validate_waypoint_list'
         rospy.wait_for_service(validate_waypoint_list_full_name)
         self.validate_waypoint_list = rospy.ServiceProxy(validate_waypoint_list_full_name, ValidateWaypointList)
+
+        # Activate the publishing of the ActionNotification
+        req = OnNotificationActionTopicRequest()
+        rospy.loginfo("Activating the action notifications...")
+        try:
+            self.activate_publishing_of_action_notification(req)
+        except rospy.ServiceException:
+            rospy.logerr("Failed to call OnNotificationActionTopic")
+            return False
+        else:
+            rospy.loginfo("Successfully activated the Action Notifications!")
 
         while not rospy.is_shutdown():
             if self.deadman:
@@ -156,31 +150,15 @@ class ArmControlNode():
         while not rospy.is_shutdown():
             if (self.last_action_notif_type == ActionEvent.ACTION_END):
                 rospy.loginfo("Received ACTION_END notification")
+                self.last_action_notif_type = None
                 return True
             elif (self.last_action_notif_type == ActionEvent.ACTION_ABORT):
                 rospy.loginfo("Received ACTION_ABORT notification")
+                self.last_action_notif_type = None
                 return False
             else:
                 # rospy.loginfo("waiting...")
                 time.sleep(0.01)
-    # def move_joints(self, angle_set):
-    #
-    #     goal = ArmJointAnglesGoal()
-    #
-    #     goal.angles.joint1 = angle_set[0]
-    #     goal.angles.joint2 = angle_set[1]
-    #     goal.angles.joint3 = angle_set[2]
-    #     goal.angles.joint4 = angle_set[3]
-    #     goal.angles.joint5 = angle_set[4]
-    #     goal.angles.joint6 = angle_set[5]
-    #
-    #     self.joints_action_client.send_goal(goal)
-    #     if self.joints_action_client.wait_for_result(rospy.Duration(200.0)):
-    #         return self.joints_action_client.get_result()
-    #     else:
-    #         self.joints_action_client.cancel_all_goals()
-    #         rospy.logwarn('        the joint angle action timed-out')
-    #         return None
 
     
     def send_cartesian_pose(self, pose):
@@ -197,12 +175,8 @@ class ArmControlNode():
         cartesianWaypoint.pose.theta_y = pose[4]
         cartesianWaypoint.pose.theta_z = pose[5]
 
-        # Each CartesianWaypoint needs a reference frame, a maximum linear and angular velocity and the blending radius (from WaypointList) is disregarded. 
-        # If you put something too small (for either velocity or blending radius), the trajectory will be rejected.
         blending_radius = 0
         cartesianWaypoint.reference_frame = CartesianReferenceFrame.CARTESIAN_REFERENCE_FRAME_BASE
-        cartesianWaypoint.maximum_linear_velocity = 0.5
-        cartesianWaypoint.maximum_angular_velocity = 30.0
         cartesianWaypoint.blending_radius = blending_radius
 
         # Initialize Waypoint and WaypointList
@@ -218,8 +192,6 @@ class ArmControlNode():
         error_number = len(res.output.trajectory_error_report.trajectory_error_elements)
 
         if (error_number >= 1) :
-            # It should be possible to reach position within 30s
-            # WaypointList is invalid (other error than angularWaypoint duration)
             rospy.loginfo("WaypointList is invalid")
             return False
         
@@ -227,63 +199,50 @@ class ArmControlNode():
         
         # Send the cartesian pose
         rospy.loginfo("Sending the robot somewhere...")
+        self.last_action_notif_type = None
         try:
             self.execute_action(req)
         except rospy.ServiceException:
             rospy.logerr("Failed to call ExecuteWaypointjectory")
             return False
         else:
-            return True
+            return self.wait_for_action_end_or_abort()
 
+    def execute_sequence(self, sequence_name):
+        file = sequence_files[sequence_name]
+        success = True
+        with open(file) as fp:
+            sequence = json.load(fp)
+
+        for i, position in enumerate(sequence["positions"]):
+            if success:
+                if position["type"] == "joints":
+                    if position["reference"] == "relative":
+                        self.send_joint_angles(self.current_joint_angles + position["value"])
+                    elif position["reference"] == "absolute":
+                        success = self.send_joint_angles(position["value"])
         
-    # def move_gripper(self, finger_positions):
-    #
-    #     goal = SetFingersPositionGoal()
-    #     goal.fingers.finger1 = float(finger_positions[0])
-    #     goal.fingers.finger2 = float(finger_positions[1])
-    #     goal.fingers.finger3 = float(finger_positions[2])
-    #
-    #     self.gripper_client.send_goal(goal)
-    #
-    #     if self.gripper_client.wait_for_result(rospy.Duration(200.0)):
-    #         return self.gripper_client.get_result()
-    #     else:
-    #         self.gripper_client.cancel_all_goals()
-    #         rospy.logwarn('        the gripper action timed-out')
-    #         return None
-
-
-    # def execute_sequence(self, sequence_name):
-    #     file = sequence_files[sequence_name]
-    #     with open(file) as fp:
-    #         sequence = json.load(fp)
-    #
-    #     for i, position in enumerate(sequence["positions"]):
-    #
-    #         if position["type"] == "joints":
-    #             if position["reference"] == "relative":
-    #                 self.move_joints(self.joint_angles + position["value"])
-    #             elif position["reference"] == "absolute":
-    #                 self.move_joints(position["value"])
-    #
-    #         elif position["type"] == "cartesian":
-    #             if position["reference"] == "relative":
-    #                 self.move_cartesian(self.cartesian_pose + position["value"])
-    #             elif position["reference"] == "absolute":
-    #                 self.move_cartesian(position["value"])
-    #
-    #         elif position["type"] == "gripper":
-    #             if position["reference"] == "relative":
-    #                 print("Relative position not supported in finger mode.")
-    #             elif position["reference"] == "absolute":
-    #                 self.move_gripper(position["value"])
-    #
-    #         print("Position {} achieved.".format(i))
-    #         time.sleep(0.5)
-
+                elif position["type"] == "cartesian":
+                    if position["reference"] == "relative":
+                        self.move_cartesian(self.current_cartesian_pose + position["value"])
+                    elif position["reference"] == "absolute":
+                        self.move_cartesian(position["value"])
+        
+                # elif position["type"] == "gripper":
+                #     if position["reference"] == "relative":
+                #         print("Relative position not supported in finger mode.")
+                #     elif position["reference"] == "absolute":
+                #         self.move_gripper(position["value"])
+            if success:
+                print("Position {} achieved.".format(i))
+            else:
+                print("Failed to complete sequence")
+                return False
+            time.sleep(0.5)
+        return True
+        
+        return True
     def send_joint_angles(self, joint_angles):
-        self.last_action_notif_type = None
-
         req = ExecuteActionRequest()
 
         trajectory = WaypointList()
@@ -333,16 +292,16 @@ class ArmControlNode():
             return False
 
         req.input.oneof_action_parameters.execute_waypoint_list.append(trajectory)
-        
         # Send the angles
-        rospy.loginfo("Sending the robot home...")
+        rospy.loginfo("Sending the robot somewhere...")
+        self.last_action_notif_type = None
         try:
             self.execute_action(req)
         except rospy.ServiceException:
             rospy.logerr("Failed to call ExecuteWaypointjectory")
             return False
         else:
-            return True
+            return self.wait_for_action_end_or_abort()
 
 
     def joy_callback(self, msg):
@@ -405,8 +364,7 @@ class ArmControlNode():
             if msg.buttons[7]:
                 self.deadman = False
                 rospy.loginfo("Homing")
-                _ = self.send_joint_angles(home_joint_angles)
-
+                self.send_joint_angles(home_joint_angles)
             # Clear faults
             elif msg.buttons[6]:
                 try:
@@ -419,38 +377,37 @@ class ArmControlNode():
             elif msg.buttons[3]:    # Y
                 self.deadman = False
                 rospy.loginfo("Moving Somewhere")
-                _ = self.send_cartesian_pose(test_cartesian_pose)
-            # elif msg.buttons[0]:    # A
-            #     _ = self.execute_sequence("analyze_dumbbell")
+                self.send_cartesian_pose(test_cartesian_pose)
+            elif msg.buttons[0]:    # A
+                self.deadman = False
+                rospy.loginfo("Starting test sequence")
+                self.execute_sequence('test_sequence')
             # elif msg.buttons[1]:    # B
             #     _ = self.execute_sequence("open_door")
             # elif msg.buttons[2]:    # X
             #     _ = self.execute_sequence("grab_dumbbell")
-
-            # if msg.buttons[8]:     # power
-            #     _ = self.stop_robot()
-            #     _ = self.clear_trajectories()
+            # elif msg.buttons[2]:
+            #     self.deadman = False
+            #     self.send_joint_angles(test_joint_pose)
+            # Retract pose, can shut down after and it won't fall
+            if msg.buttons[8]:     # power
+                self.deadman = False
+                self.send_joint_angles(retract_pose_joint_angles)
         else:
             if self.deadman:
                 self.init_cmd()
                 self.rate.sleep()
                 self.deadman = False
 
-        # if msg.buttons[5]:
-        #     print(" Joint positions : {} \n  Cartesian pose : {}\nFinger positions : {}\n".format(self.joint_angles, self.cartesian_pose, self.finger_positions))
+        if msg.buttons[5]:
+            print(" Joint positions : {}\n  Cartesian pose : {}\nFinger positions : {}\n".format(self.current_joint_angles, self.current_cartesian_pose, self.current_finger_positions))
 
-    # def joint_angles_callback(self, msg):
-    #     self.joint_angles = np.array([msg.joint1, msg.joint2, msg.joint3, msg.joint4, msg.joint5, msg.joint6])
+    def base_feedback_callback(self, msg):
+        self.current_cartesian_pose = np.array([msg.base.commanded_tool_pose_x, msg.base.commanded_tool_pose_y, msg.base.commanded_tool_pose_z, msg.base.commanded_tool_pose_theta_x, msg.base.commanded_tool_pose_theta_y, msg.base.commanded_tool_pose_theta_z])
 
-    # def cartesian_pose_callback(self, msg):
-    #     euler_angles = euler_from_quaternion((msg.pose.orientation.x, msg.pose.orientation.y,
-    #                                           msg.pose.orientation.z, msg.pose.orientation.w))
-    #     self.cartesian_pose = np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z,
-    #                                     degrees(euler_angles[0]), degrees(euler_angles[1]), degrees(euler_angles[2])])
-
-    # def finger_positions_callback(self, msg):
-    #     self.finger_positions = np.array([msg.finger1, msg.finger2, msg.finger3])
-
+    def joint_state_callback(self, msg):
+        self.current_joint_angles = np.array([degrees(msg.position[0]), degrees(msg.position[1]), degrees(msg.position[2]), degrees(msg.position[3]), degrees(msg.position[4]), degrees(msg.position[5]), degrees(msg.position[6])])
+        self.current_finger_positions = np.array([msg.position[7]/MAX_FINGER_POS])
 
 if __name__ == '__main__':
     try:
