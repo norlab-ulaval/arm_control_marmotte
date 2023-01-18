@@ -10,6 +10,11 @@
             "type": "joints",
             "reference": "absolute",
             "value": [90.0, 0.0, 180.0, 215.0, 0.0, 52.5, 90.0]
+        },
+        {
+            "type": "gripper",
+            "reference": "absolute",
+            "value": [1.0]
         }
     ]
 }

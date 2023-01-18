@@ -208,40 +208,6 @@ class ArmControlNode():
         else:
             return self.wait_for_action_end_or_abort()
 
-    def execute_sequence(self, sequence_name):
-        file = sequence_files[sequence_name]
-        success = True
-        with open(file) as fp:
-            sequence = json.load(fp)
-
-        for i, position in enumerate(sequence["positions"]):
-            if success:
-                if position["type"] == "joints":
-                    if position["reference"] == "relative":
-                        self.send_joint_angles(self.current_joint_angles + position["value"])
-                    elif position["reference"] == "absolute":
-                        success = self.send_joint_angles(position["value"])
-        
-                elif position["type"] == "cartesian":
-                    if position["reference"] == "relative":
-                        self.move_cartesian(self.current_cartesian_pose + position["value"])
-                    elif position["reference"] == "absolute":
-                        self.move_cartesian(position["value"])
-        
-                # elif position["type"] == "gripper":
-                #     if position["reference"] == "relative":
-                #         print("Relative position not supported in finger mode.")
-                #     elif position["reference"] == "absolute":
-                #         self.move_gripper(position["value"])
-            if success:
-                print("Position {} achieved.".format(i))
-            else:
-                print("Failed to complete sequence")
-                return False
-            time.sleep(0.5)
-        return True
-        
-        return True
     def send_joint_angles(self, joint_angles):
         req = ExecuteActionRequest()
 
@@ -303,6 +269,60 @@ class ArmControlNode():
         else:
             return self.wait_for_action_end_or_abort()
 
+    def move_gripper(self, position):
+        req = SendGripperCommandRequest()
+        finger = Finger()
+        finger.finger_identifier = 0
+        if position > MAX_FINGER_POS:
+            finger.value = MAX_FINGER_POS
+        elif position < 0:
+            finger.value = 0.0
+        else:
+            finger.value = position
+        req.input.gripper.finger.append(finger)
+        req.input.mode = GripperMode.GRIPPER_POSITION
+        self.last_action_notif_type = None
+        try:
+            self.send_gripper_command(req)
+        except rospy.ServiceException:
+            rospy.logerr("Failed to call SendGripperCommand.")
+            return False
+        else:
+            return self.wait_for_action_end_or_abort()
+        
+
+    def execute_sequence(self, sequence_name):
+        file = sequence_files[sequence_name]
+        success = True
+        with open(file) as fp:
+            sequence = json.load(fp)
+
+        for i, position in enumerate(sequence["positions"]):
+            if success:
+                if position["type"] == "joints":
+                    if position["reference"] == "relative":
+                        self.send_joint_angles(self.current_joint_angles + position["value"])
+                    elif position["reference"] == "absolute":
+                        success = self.send_joint_angles(position["value"])
+        
+                elif position["type"] == "cartesian":
+                    if position["reference"] == "relative":
+                        self.move_cartesian(self.current_cartesian_pose + position["value"])
+                    elif position["reference"] == "absolute":
+                        self.move_cartesian(position["value"])
+        
+                elif position["type"] == "gripper":
+                    if position["reference"] == "relative":
+                        rospy.logerr("Relative position not supported in gripper mode.")
+                    elif position["reference"] == "absolute":
+                        self.move_gripper(position["value"])
+            if success:
+                print("Position {} achieved.".format(i))
+            else:
+                print("Failed to complete sequence")
+                return False
+            time.sleep(0.5)
+        return True
 
     def joy_callback(self, msg):
 
