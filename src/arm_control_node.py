@@ -39,7 +39,7 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler
     buttons[9] -> Left joystick press
     buttons[10] -> Right joystick press
 '''
-MAX_FINGER_POS = 0.8
+MAX_FINGER_POS = 1.0
 root = rospkg.RosPack().get_path('arm_control_marmotte')
 sequence_files = {
     'grab_dumbbell': root+"/sequences/grab_dumbbell.json", 
@@ -273,12 +273,12 @@ class ArmControlNode():
         req = SendGripperCommandRequest()
         finger = Finger()
         finger.finger_identifier = 0
-        if position > MAX_FINGER_POS:
+        if position[0] > MAX_FINGER_POS:
             finger.value = MAX_FINGER_POS
-        elif position < 0:
+        elif position[0] < 0:
             finger.value = 0.0
         else:
-            finger.value = position
+            finger.value = position[0]
         req.input.gripper.finger.append(finger)
         req.input.mode = GripperMode.GRIPPER_POSITION
         self.last_action_notif_type = None
@@ -288,7 +288,8 @@ class ArmControlNode():
             rospy.logerr("Failed to call SendGripperCommand.")
             return False
         else:
-            return self.wait_for_action_end_or_abort()
+            time.sleep(0.5)
+            return True
         
 
     def execute_sequence(self, sequence_name):
@@ -427,7 +428,7 @@ class ArmControlNode():
 
     def joint_state_callback(self, msg):
         self.current_joint_angles = np.array([degrees(msg.position[0]), degrees(msg.position[1]), degrees(msg.position[2]), degrees(msg.position[3]), degrees(msg.position[4]), degrees(msg.position[5]), degrees(msg.position[6])])
-        self.current_finger_positions = np.array([msg.position[7]/MAX_FINGER_POS])
+        self.current_finger_positions = np.array([msg.position[7]])
 
 if __name__ == '__main__':
     try:

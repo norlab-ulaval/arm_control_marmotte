@@ -2,9 +2,14 @@
     "positions": 
     [
         {
+            "type": "gripper",
+            "reference": "absolute",
+            "value": [0.0]
+        },
+        {
             "type": "joints",
             "reference": "absolute",
-            "value": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            "value": [80.0, 0.0, 180.0, 215.0, 0.0, 52.5, 90.0]
         },
         {
             "type": "joints",
