@@ -3,15 +3,20 @@
     <arg name="gripper" default="robotiq_2f_85"/>
     <arg name="prefix" default=""/>
     <arg name="ip_address" default="192.168.1.10"/>
+    <arg name="start_rviz" default="false"/>
     <include file="$(find kortex_driver)/launch/kortex_driver.launch">
-	<arg name="arm" value="$(arg arm)"/>
-	<arg name="gripper" value="$(arg gripper)"/>
-    <arg name="prefix" default="$(arg prefix)"/>
-    <arg name="ip_address" default="$(arg ip_address)"/>
+        <arg name="arm" value="$(arg arm)"/>
+        <arg name="gripper" value="$(arg gripper)"/>
+        <arg name="prefix" value="$(arg prefix)"/>
+        <arg name="ip_address" value="$(arg ip_address)"/>
+        <arg name="start_rviz" value="$(arg start_rviz)"/>
     </include>
+    
+    <include file="$(find kinova_vision)/launch/kinova_vision.launch"/>
+
     <node name="arm_control_marmotte" pkg="arm_control_marmotte" type="arm_control_node.py" output="screen"/>
     <node pkg="joy" type="joy_node" name="joy_arm" >
-         <param name="deadzone" value="0.05" />
-         <remap from="joy" to="joy_arm" />
+        <param name="deadzone" value="0.05" />
+        <remap from="joy" to="joy_arm" />
     </node>
 </launch>
