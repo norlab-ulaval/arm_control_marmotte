@@ -40,6 +40,7 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler
     buttons[10] -> Right joystick press
 '''
 MAX_FINGER_POS = 1.0
+
 root = rospkg.RosPack().get_path('arm_control_marmotte')
 sequence_files = {
     'grab_dumbbell': root+"/sequences/grab_dumbbell.json", 
@@ -65,17 +66,27 @@ class ArmControlNode():
         self.current_joint_angles = []
         self.current_cartesian_pose = []
         self.current_finger_positions = []
-        self.cmd = TwistCommand()
+        self.cartesian_cmd = TwistCommand()
+        self.joint_cmd = Base_JointSpeeds()
         self.init_cmd()
-        self.deadman = False
+        self.cartesian_deadman = False
+        self.joint_deadman = False
         self.fingers_moving = False
 
         # Arguments
-        self.speed_ratio = rospy.get_param("speed_ratio", default=1.0)
+        self.cartesian_speed_ratio = rospy.get_param("~cartesian_speed_ratio", default=1.0)
+        rospy.loginfo('cartesian_speed_ratio: ')
+        rospy.loginfo(self.cartesian_speed_ratio)
+
+        self.joint_speed_ratio = rospy.get_param("~joint_speed_ratio", default=1.0)
+        rospy.loginfo('joint_speed_ratio: ')
+        rospy.loginfo(self.joint_speed_ratio)
+
         self.prefix = rospy.get_param("arm_prefix", default="my_gen3")
         
         # Publishers / Subscribers
-        self.cmd_pub = rospy.Publisher("/" + self.prefix + "/in/cartesian_velocity", TwistCommand, queue_size=10)
+        self.cartesian_cmd_pub = rospy.Publisher("/" + self.prefix + "/in/cartesian_velocity", TwistCommand, queue_size=1)
+        self.joint_cmd_pub = rospy.Publisher("/" + self.prefix + "/in/joint_velocity", Base_JointSpeeds, queue_size=1)
         self.joy_sub = rospy.Subscriber('/joy_arm', Joy, self.joy_callback, queue_size=1)
 
         self.action_topic_sub = rospy.Subscriber("/" + self.prefix + "/action_topic", ActionNotification,
@@ -128,20 +139,34 @@ class ArmControlNode():
             rospy.loginfo("Successfully activated the Action Notifications!")
 
         while not rospy.is_shutdown():
-            if self.deadman:
-                self.cmd_pub.publish(self.cmd)
+            if self.cartesian_deadman:
+                req = SetCartesianReferenceFrameRequest()
+                req.input.reference_frame = CartesianReferenceFrame.CARTESIAN_REFERENCE_FRAME_TOOL
+                self.set_cartesian_reference_frame(req)
+                self.cartesian_cmd_pub.publish(self.cartesian_cmd)
+            elif self.joint_deadman:
+                self.joint_cmd_pub.publish(self.joint_cmd)
             self.rate.sleep()
 
         self.init_cmd()
 
     def init_cmd(self):
-        self.cmd.twist.linear_x = 0.0
-        self.cmd.twist.linear_y = 0.0
-        self.cmd.twist.linear_z = 0.0
-        self.cmd.twist.angular_x = 0.0
-        self.cmd.twist.angular_y = 0.0
-        self.cmd.twist.angular_z = 0.0
-        self.cmd.duration = 0
+        self.cartesian_cmd.twist.linear_x = 0.0
+        self.cartesian_cmd.twist.linear_y = 0.0
+        self.cartesian_cmd.twist.linear_z = 0.0
+        self.cartesian_cmd.twist.angular_x = 0.0
+        self.cartesian_cmd.twist.angular_y = 0.0
+        self.cartesian_cmd.twist.angular_z = 0.0
+        self.cartesian_cmd.duration = 0
+
+        self.joint_cmd = Base_JointSpeeds()
+        for i in range(7):
+            jspeed = JointSpeed()
+            jspeed.joint_identifier = i
+            jspeed.value = 0.0
+            jspeed.duration = 0
+            self.joint_cmd.joint_speeds.append(jspeed)
+        self.joint_cmd.duration = 0
 
     def cb_action_topic(self, notif):
         self.last_action_notif_type = notif.action_event
@@ -161,7 +186,7 @@ class ArmControlNode():
                 time.sleep(0.01)
 
     
-    def send_cartesian_pose(self, pose):
+    def send_cartesian_pose(self, pose, frame):
         req = ExecuteActionRequest()
 
         trajectory = WaypointList()
@@ -176,7 +201,10 @@ class ArmControlNode():
         cartesianWaypoint.pose.theta_z = pose[5]
 
         blending_radius = 0
-        cartesianWaypoint.reference_frame = CartesianReferenceFrame.CARTESIAN_REFERENCE_FRAME_BASE
+        if (frame == 'base'):
+            cartesianWaypoint.reference_frame = CartesianReferenceFrame.CARTESIAN_REFERENCE_FRAME_BASE
+        elif (frame == 'tool'):
+            cartesianWaypoint.reference_frame = CartesianReferenceFrame.CARTESIAN_REFERENCE_FRAME_TOOL
         cartesianWaypoint.blending_radius = blending_radius
 
         # Initialize Waypoint and WaypointList
@@ -308,9 +336,9 @@ class ArmControlNode():
         
                 elif position["type"] == "cartesian":
                     if position["reference"] == "relative":
-                        self.move_cartesian(self.current_cartesian_pose + position["value"])
+                        self.move_cartesian(position["value"], 'tool')
                     elif position["reference"] == "absolute":
-                        self.move_cartesian(position["value"])
+                        self.move_cartesian(position["value"], 'base')
         
                 elif position["type"] == "gripper":
                     if position["reference"] == "relative":
@@ -326,16 +354,17 @@ class ArmControlNode():
         return True
 
     def joy_callback(self, msg):
-
+        # Cartesian control + gripper + sequences/predefined poses
         if msg.buttons[4]:
-            self.deadman = True
+            self.cartesian_deadman = True
+            self.joint_deadman = False
             # Arm control joysticks
-            self.cmd.twist.linear_x = msg.axes[6]*self.speed_ratio
-            self.cmd.twist.linear_y = msg.axes[7]*self.speed_ratio * -1.0
-            self.cmd.twist.linear_z = msg.axes[1]*self.speed_ratio
-            self.cmd.twist.angular_x = msg.axes[4]*self.speed_ratio
-            self.cmd.twist.angular_y = msg.axes[3]*self.speed_ratio
-            self.cmd.twist.angular_z = -msg.axes[0]*self.speed_ratio
+            self.cartesian_cmd.twist.linear_x = msg.axes[0]*self.cartesian_speed_ratio
+            self.cartesian_cmd.twist.linear_y = msg.axes[7]*self.cartesian_speed_ratio
+            self.cartesian_cmd.twist.linear_z = msg.axes[1]*self.cartesian_speed_ratio
+            self.cartesian_cmd.twist.angular_x = msg.axes[4]*self.cartesian_speed_ratio
+            self.cartesian_cmd.twist.angular_y = msg.axes[3]*self.cartesian_speed_ratio
+            self.cartesian_cmd.twist.angular_z = -msg.axes[6]
 
             # Fingers control
             if msg.axes[5] < 0:
@@ -383,7 +412,7 @@ class ArmControlNode():
 
             # Home position
             if msg.buttons[7]:
-                self.deadman = False
+                self.cartesian_deadman = False
                 rospy.loginfo("Homing")
                 self.send_joint_angles(home_joint_angles)
             # Clear faults
@@ -396,11 +425,11 @@ class ArmControlNode():
                     rospy.loginfo("Cleared the faults succesfully.")
                     
             elif msg.buttons[3]:    # Y
-                self.deadman = False
+                self.cartesian_deadman = False
                 rospy.loginfo("Moving Somewhere")
                 self.send_cartesian_pose(test_cartesian_pose)
             elif msg.buttons[0]:    # A
-                self.deadman = False
+                self.cartesian_deadman = False
                 rospy.loginfo("Starting test sequence")
                 self.execute_sequence('test_sequence')
             # elif msg.buttons[1]:    # B
@@ -412,16 +441,45 @@ class ArmControlNode():
             #     self.send_joint_angles(test_joint_pose)
             # Retract pose, can shut down after and it won't fall
             if msg.buttons[8]:     # power
-                self.deadman = False
+                self.cartesian_deadman = False
                 self.send_joint_angles(retract_pose_joint_angles)
-        else:
-            if self.deadman:
-                self.init_cmd()
-                self.rate.sleep()
-                self.deadman = False
 
+        # Joint control
         if msg.buttons[5]:
-            print(" Joint positions : {}\n  Cartesian pose : {}\nFinger positions : {}\n".format(self.current_joint_angles, self.current_cartesian_pose, self.current_finger_positions))
+            self.joint_deadman = True
+            self.cartesian_deadman = False
+            # print(" Joint positions : {}\n  Cartesian pose : {}\nFinger positions : {}\n".format(self.current_joint_angles, self.current_cartesian_pose, self.current_finger_positions))
+            self.joint_cmd = Base_JointSpeeds()
+            jspeed = JointSpeed()
+            jspeed.duration = 0
+            jspeed.joint_identifier = 0
+            jspeed.value = msg.axes[0] * self.joint_speed_ratio
+            self.joint_cmd.joint_speeds.append(jspeed)
+            jspeed1 = JointSpeed()
+            jspeed1.duration = 0
+            jspeed1.joint_identifier = 1
+            jspeed1.value = msg.axes[1] * self.joint_speed_ratio
+            self.joint_cmd.joint_speeds.append(jspeed1)
+            jspeed2 = JointSpeed()
+            jspeed2.duration = 0
+            jspeed2.joint_identifier = 2
+            jspeed2.value = msg.axes[3] * self.joint_speed_ratio
+            self.joint_cmd.joint_speeds.append(jspeed2)
+            jspeed3 = JointSpeed()
+            jspeed3.duration = 0
+            jspeed3.joint_identifier = 3
+            jspeed3.value = msg.axes[4] * self.joint_speed_ratio
+            self.joint_cmd.joint_speeds.append(jspeed3)
+            jspeed4 = JointSpeed()
+            jspeed4.duration = 0
+            jspeed4.joint_identifier = 4
+            jspeed4.value = msg.axes[6] * self.joint_speed_ratio
+            self.joint_cmd.joint_speeds.append(jspeed4)
+            jspeed5 = JointSpeed()
+            jspeed5.duration = 0
+            jspeed5.joint_identifier = 5
+            jspeed5.value = msg.axes[7] * self.joint_speed_ratio
+            self.joint_cmd.joint_speeds.append(jspeed5)
 
     def base_feedback_callback(self, msg):
         self.current_cartesian_pose = np.array([msg.base.commanded_tool_pose_x, msg.base.commanded_tool_pose_y, msg.base.commanded_tool_pose_z, msg.base.commanded_tool_pose_theta_x, msg.base.commanded_tool_pose_theta_y, msg.base.commanded_tool_pose_theta_z])
