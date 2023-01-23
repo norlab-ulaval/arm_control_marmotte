@@ -48,11 +48,14 @@ sequence_files = {
     'open_door': root+"/sequences/open_door.json",
     'test_sequence': root+"/sequences/test_sequence.json"  
     }
-viewpoint_joint_state = [195.89, 168.79, 47.21, 185.70, 65.55, 139.11]
-dumbell_joint_state = [189.1484, 261.7324,  58.8002, 155.5835,  33.3919, 103.7543]
+# viewpoint_joint_state = [195.89, 168.79, 47.21, 185.70, 65.55, 139.11]
+# dumbell_joint_state = [189.1484, 261.7324,  58.8002, 155.5835,  33.3919, 103.7543]
 home_joint_angles = [90.0, 0.0, 180.0, 215.0, 0.0, 52.5, 90.0]
 retract_pose_joint_angles = [90.0, 330.0, 180.0, 215.0, 0.0, 305.0, 90.0]
 test_cartesian_pose = [0.1, -0.45, 0.55, -90.0, -180.0, 180.0]
+reach_test_pose = [90.0, 90.0, 180.0, 0.0, 0.0, 0.0, 90.0]
+table_test_pose = [90.0, 60.0, 180.0, 0.0, 0.0, -30.0, 90.0]
+
 
 class ArmControlNode():
 
@@ -82,7 +85,9 @@ class ArmControlNode():
         rospy.loginfo('joint_speed_ratio: ')
         rospy.loginfo(self.joint_speed_ratio)
 
-        self.prefix = rospy.get_param("arm_prefix", default="my_gen3")
+        self.prefix = rospy.get_param("~group_name", default="")
+        rospy.loginfo('prefix used: ')
+        rospy.loginfo(self.prefix)
         
         # Publishers / Subscribers
         self.cartesian_cmd_pub = rospy.Publisher("/" + self.prefix + "/in/cartesian_velocity", TwistCommand, queue_size=1)
@@ -427,13 +432,14 @@ class ArmControlNode():
             elif msg.buttons[3]:    # Y
                 self.cartesian_deadman = False
                 rospy.loginfo("Moving Somewhere")
-                self.send_cartesian_pose(test_cartesian_pose)
+                self.send_cartesian_pose(test_cartesian_pose, 'tool')
             elif msg.buttons[0]:    # A
                 self.cartesian_deadman = False
                 rospy.loginfo("Starting test sequence")
                 self.execute_sequence('test_sequence')
-            # elif msg.buttons[1]:    # B
-            #     _ = self.execute_sequence("open_door")
+            elif msg.buttons[1]:    # B
+                self.cartesian_deadman = False
+                _ = self.send_joint_angles(table_test_pose)
             # elif msg.buttons[2]:    # X
             #     _ = self.execute_sequence("grab_dumbbell")
             # elif msg.buttons[2]:
@@ -445,7 +451,7 @@ class ArmControlNode():
                 self.send_joint_angles(retract_pose_joint_angles)
 
         # Joint control
-        if msg.buttons[5]:
+        elif msg.buttons[5]:
             self.joint_deadman = True
             self.cartesian_deadman = False
             # print(" Joint positions : {}\n  Cartesian pose : {}\nFinger positions : {}\n".format(self.current_joint_angles, self.current_cartesian_pose, self.current_finger_positions))
@@ -480,6 +486,12 @@ class ArmControlNode():
             jspeed5.joint_identifier = 5
             jspeed5.value = msg.axes[7] * self.joint_speed_ratio
             self.joint_cmd.joint_speeds.append(jspeed5)
+        else:
+            if self.joint_deadman or self.cartesian_deadman:
+                self.init_cmd()
+                self.rate.sleep()
+                self.joint_deadman = False
+                self.cartesian_deadman = False
 
     def base_feedback_callback(self, msg):
         self.current_cartesian_pose = np.array([msg.base.commanded_tool_pose_x, msg.base.commanded_tool_pose_y, msg.base.commanded_tool_pose_z, msg.base.commanded_tool_pose_theta_x, msg.base.commanded_tool_pose_theta_y, msg.base.commanded_tool_pose_theta_z])
