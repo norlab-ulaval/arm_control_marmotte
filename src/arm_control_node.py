@@ -12,10 +12,11 @@ from std_msgs.msg import Header
 from geometry_msgs.msg import Point, Quaternion
 from kortex_driver.msg import *
 from kortex_driver.srv import *
+from arm_control_marmotte.srv import sendRobotToPosition, sendRobotToPositionResponse
 import rospkg
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
-
-
+from dynamic_reconfigure.server import Server
+from arm_control_marmotte.cfg import speed_ratiosConfig
 '''
     Logitech Joystick Button Mapping
 
@@ -48,13 +49,23 @@ sequence_files = {
     'open_door': root+"/sequences/open_door.json",
     'test_sequence': root+"/sequences/test_sequence.json"  
     }
+position_files = {
+    'home': root+"/positions/home.json",
+    'upstairs': root+"/positions/upstairs.json",
+    'downstairs': root+"/positions/downstairs.json",
+    'sleep': root+"/positions/sleep.json",
+    'reach_test': root+"/positions/reach_test.json",
+    'table': root+"/positions/table.json",
+    'door': root+"/positions/door.json"
+}
 # viewpoint_joint_state = [195.89, 168.79, 47.21, 185.70, 65.55, 139.11]
 # dumbell_joint_state = [189.1484, 261.7324,  58.8002, 155.5835,  33.3919, 103.7543]
 home_joint_angles = [90.0, 0.0, 180.0, 215.0, 0.0, 52.5, 90.0]
 retract_pose_joint_angles = [90.0, 330.0, 180.0, 215.0, 0.0, 305.0, 90.0]
 test_cartesian_pose = [0.1, -0.45, 0.55, -90.0, -180.0, 180.0]
 reach_test_pose = [90.0, 90.0, 180.0, 0.0, 0.0, 0.0, 90.0]
-table_test_pose = [90.0, 60.0, 180.0, 0.0, 0.0, -30.0, 90.0]
+table_test_pose = [90.0, 30.0, 180.0, -35.0, 0.0, -115.0, 90.0]
+stair_test_pose = [90.0, 65.0, 180.0, -30.0, 0.0, -5.0, 90.0]
 
 
 class ArmControlNode():
@@ -77,11 +88,11 @@ class ArmControlNode():
         self.fingers_moving = False
 
         # Arguments
-        self.cartesian_speed_ratio = rospy.get_param("~cartesian_speed_ratio", default=1.0)
+        self.cartesian_speed_ratio = rospy.get_param("~cartesian_speed_ratio", default=0.1)
         rospy.loginfo('cartesian_speed_ratio: ')
         rospy.loginfo(self.cartesian_speed_ratio)
 
-        self.joint_speed_ratio = rospy.get_param("~joint_speed_ratio", default=1.0)
+        self.joint_speed_ratio = rospy.get_param("~joint_speed_ratio", default=0.4)
         rospy.loginfo('joint_speed_ratio: ')
         rospy.loginfo(self.joint_speed_ratio)
 
@@ -131,6 +142,8 @@ class ArmControlNode():
         validate_waypoint_list_full_name = '/' + self.prefix + '/base/validate_waypoint_list'
         rospy.wait_for_service(validate_waypoint_list_full_name)
         self.validate_waypoint_list = rospy.ServiceProxy(validate_waypoint_list_full_name, ValidateWaypointList)
+        
+        sendRobotToPosition_sevice = rospy.Service('send_robot_to_position', sendRobotToPosition, self.send_position_service_callback)
 
         # Activate the publishing of the ActionNotification
         req = OnNotificationActionTopicRequest()
@@ -142,6 +155,8 @@ class ArmControlNode():
             return False
         else:
             rospy.loginfo("Successfully activated the Action Notifications!")
+        
+        srv = Server(speed_ratiosConfig, self.dyn_reconfigure_callback)
 
         while not rospy.is_shutdown():
             if self.cartesian_deadman:
@@ -172,6 +187,14 @@ class ArmControlNode():
             jspeed.duration = 0
             self.joint_cmd.joint_speeds.append(jspeed)
         self.joint_cmd.duration = 0
+
+    def send_position_service_callback(self, req):
+        print(req.position)
+        file = position_files[req.position]
+        with open(file) as fp:
+            position = json.load(fp)
+        success = self.send_joint_angles(position["value"])
+        return sendRobotToPositionResponse(success)
 
     def cb_action_topic(self, notif):
         self.last_action_notif_type = notif.action_event
@@ -439,7 +462,7 @@ class ArmControlNode():
                 self.execute_sequence('test_sequence')
             elif msg.buttons[1]:    # B
                 self.cartesian_deadman = False
-                _ = self.send_joint_angles(table_test_pose)
+                _ = self.send_joint_angles(stair_test_pose)
             # elif msg.buttons[2]:    # X
             #     _ = self.execute_sequence("grab_dumbbell")
             # elif msg.buttons[2]:
@@ -499,6 +522,13 @@ class ArmControlNode():
     def joint_state_callback(self, msg):
         self.current_joint_angles = np.array([degrees(msg.position[0]), degrees(msg.position[1]), degrees(msg.position[2]), degrees(msg.position[3]), degrees(msg.position[4]), degrees(msg.position[5]), degrees(msg.position[6])])
         self.current_finger_positions = np.array([msg.position[7]])
+    
+    def dyn_reconfigure_callback(self, config, level):
+        if config.cartesian_speed_ratio != self.cartesian_speed_ratio:
+            self.cartesian_speed_ratio = config.cartesian_speed_ratio
+        if config.joint_speed_ratio != self.joint_speed_ratio:
+            self.joint_speed_ratio = config.joint_speed_ratio
+        return config
 
 if __name__ == '__main__':
     try:

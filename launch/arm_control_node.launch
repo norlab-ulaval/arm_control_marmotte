@@ -5,7 +5,7 @@
     <arg name="prefix" default="arm_"/>
     <arg name="ip_address" default="192.168.1.10"/>
     <arg name="start_rviz" default="false"/>
-    <arg name="local_joystick" default="false"/>
+    <arg name="local_joystick" default="true"/>
     <group ns="$(arg group)">
         <include file="$(find kortex_driver)/launch/kortex_arm_driver.launch">
             <arg name="arm" value="$(arg arm)"/>
