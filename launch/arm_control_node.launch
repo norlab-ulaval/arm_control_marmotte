@@ -1,9 +1,9 @@
 <launch>
-    <arg name="use_urdf" default="true"/>
-    <arg name="use_jaco_v1_fingers" default="false"/>
-    <include file="$(find kinova_bringup)/launch/kinova_robot.launch">
-	<arg name="use_urdf" value="$(arg use_urdf)"/>
-	<arg name="use_jaco_v1_fingers" value="$(arg use_jaco_v1_fingers)"/>
+    <include file="$(find kinova_bringup)/launch/gen3.launch.py">
+        <param name="robot_ip" value="192.168.5.111">
     </include>
-    <node name="arm_control_marmotte" pkg="arm_control_marmotte" type="arm_control_node.py" output="screen"/>
+    <node pkg="joy" exec="joy_node" name="joy_node" output="screen">
+        <param name="device_name" value="Logitech Gamepad F710"/>
+    </node>
+    <node pkg="arm_control_marmotte" exec="arm_control_node" name="arm_control_node" output="screen"/>
 </launch>
