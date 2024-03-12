@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-import rospy
+import rclpy
 import time
 import json
 import numpy as np
@@ -10,10 +10,11 @@ from sensor_msgs.msg import Joy, JointState
 from geometry_msgs.msg import Twist, PoseStamped
 from std_msgs.msg import Header
 from geometry_msgs.msg import Point, Quaternion
-from kinova_msgs.msg import PoseVelocityWithFingerVelocity, ArmPoseAction, ArmPoseGoal, ArmJointAnglesAction, ArmJointAnglesGoal, JointAngles, SetFingersPositionAction, SetFingersPositionGoal, FingerPosition
-from kinova_msgs.srv import HomeArm, ClearTrajectories, ZeroTorques, Start, Stop
-import rospkg
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
+from trajectory_msgs.msg import JointTrajectory
+from control_msgs.action import FollowJointTrajectory, GripperCommand
+from controller_msgs.srv import SwitchController
+#import rospkg
+# from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 
 '''
@@ -40,12 +41,12 @@ from tf.transformations import euler_from_quaternion, quaternion_from_euler
     buttons[10] -> Right joystick press
 '''
 
-root = rospkg.RosPack().get_path('arm_control_marmotte')
-sequence_files = {
-    'grab_dumbbell': root+"/sequences/grab_dumbbell.json", 
-    'analyze_dumbbell': root+"/sequences/analyze_dumbbell.json", 
-    'open_door': root+"/sequences/open_door.json"  
-    }
+#root = rospkg.RosPack().get_path('arm_control_marmotte')
+#sequence_files = {
+#    'grab_dumbbell': root+"/sequences/grab_dumbbell.json", 
+#    'analyze_dumbbell': root+"/sequences/analyze_dumbbell.json", 
+#    'open_door': root+"/sequences/open_door.json"  
+#    }
 viewpoint_joint_state = [195.89, 168.79, 47.21, 185.70, 65.55, 139.11]
 dumbell_joint_state = [189.1484, 261.7324,  58.8002, 155.5835,  33.3919, 103.7543]
 
