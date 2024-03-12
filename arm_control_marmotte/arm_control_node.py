@@ -13,7 +13,7 @@ from controller_manager_msgs.srv import SwitchController
 
 # Joint points declaration
 home_joint_point = JointTrajectoryPoint()
-home_joint_point.positions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+home_joint_point.positions = [360.0, 15.0, 180.0, 230.0, 0.0, 55.0, 90.0]
 home_joint_point.time_from_start.sec = 10
 viewpoint_joint_point = JointTrajectoryPoint()
 viewpoint_joint_point.positions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -22,12 +22,12 @@ joint_names = ['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6',
 
 # Gripper Commands declaration
 open_gripper = GripperCommandMsg()
-open_gripper.command.position = 0.0
-open_gripper.command.max_effort = 100.0
+open_gripper.position = 0.0
+open_gripper.max_effort = 100.0
 
 close_gripper = GripperCommandMsg()
-close_gripper.command.position = 0.8
-close_gripper.command.max_effort = 100.0
+close_gripper.position = 0.8
+close_gripper.max_effort = 100.0
 
 '''
     Logitech Joystick Button Mapping
@@ -59,6 +59,12 @@ class ArmControlNode(Node):
     def __init__(self):
         super().__init__('arm_control_node')
         np.set_printoptions(precision=4, suppress=True)
+        self.publish = False
+
+        # Messages
+        self.twist_msg = Twist()
+        self.joint_msg = JointTrajectory()
+        self.init_cmd()
 
         # Publishers/Subscribers
         self.cmd_pub_ = self.create_publisher(Twist, 'twist_cmd', 10)
@@ -75,12 +81,8 @@ class ArmControlNode(Node):
         while not self.switch_controller_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('service not available, waiting again...')
         self.switch_controller_request = SwitchController.Request()
-        self.current_controller = "twist_controller"
+        self.current_controller = "joint_trajectory_controller"
 
-        # Messages
-        self.twist_msg = Twist()
-        self.joint_msg = JointTrajectory()
-        self.init_cmd()
 
         # timer to publish the commands.
         timer_period = 0.001  # seconds
@@ -128,14 +130,16 @@ class ArmControlNode(Node):
 
 
     def twist_pub_callback(self):
-        self.cmd_pub_.publish(self.twist_msg)
+        if self.publish:
+            self.cmd_pub_.publish(self.twist_msg)
 
     def joint_pub_callback(self):
-        self.joint_pub_.publish(self.joint_msg)
+        if self.publish:
+            self.joint_pub_.publish(self.joint_msg)
 
     def switch_controller(self, start, stop):
-        self.switch_controller_request.start_controllers = start
-        self.switch_controller_request.stop_controllers = stop
+        self.switch_controller_request.start_controllers = [start]
+        self.switch_controller_request.stop_controllers = [stop]
         self.switch_controller_request.strictness = 2
         self.switch_controller_request.start_asap = True
         service_response = self.switch_controller_client.call_async(self.switch_controller_request)
@@ -146,9 +150,10 @@ class ArmControlNode(Node):
         return service_response.result()
 
     def joy_callback(self, msg):
-        self.get_logger().info('joy callback called')
+
         # Deadman switch
         if msg.buttons[4]:
+            self.publish = True
             # Arm control joysticks
             self.twist_msg.linear.x= msg.axes[7]*self.speed_ratio
             self.twist_msg.linear.y = msg.axes[6]*self.speed_ratio
@@ -157,36 +162,39 @@ class ArmControlNode(Node):
             self.twist_msg.angular.y = msg.axes[3]*self.speed_ratio
             self.twist_msg.angular.z = -msg.axes[0]*self.speed_ratio
 
-            if msg.axes[5] < 0:
-                self.gripper_action_complete = False
-                self.send_gripper_goal('close')
-                while not self.gripper_action_complete:
-                    time.sleep(0.1)
+            # if msg.axes[5] < 0:
+            #     self.gripper_action_complete = False
+            #     self.send_gripper_goal('close')
+            #     while not self.gripper_action_complete:
+            #         time.sleep(0.1)
+            #
+            # elif msg.axes[2] < 0:
+            #     self.gripper_action_complete = False
+            #     self.send_gripper_goal('open')
+            #     while not self.gripper_action_complete:
+            #         time.sleep(0.1)
 
-            elif msg.axes[2] < 0:
-                self.gripper_action_complete = False
-                self.send_gripper_goal('open')
-                while not self.gripper_action_complete:
-                    time.sleep(0.1)
-
-            elif msg.buttons[7]:
+            if msg.buttons[7]:
+                self.get_logger().info('Trying to move soon')
                 self.joint_msg.joint_names = joint_names
-                self.joint_msg.points = home_joint_point
+                self.joint_msg.points = [home_joint_point]
                 if self.current_controller == "twist_controller":
                     result = self.switch_controller('joint_trajectory_controller', 'twist_controller')
                     self.get_logger().info(result)
 
             elif msg.buttons[3]:
                 self.joint_msg.joint_names = joint_names
-                self.joint_msg.points = viewpoint_joint_point
+                self.joint_msg.points = [viewpoint_joint_point]
                 if self.current_controller == "twist_controller":
                     result = self.switch_controller('joint_trajectory_controller', 'twist_controller')
                     self.get_logger().info(result)
 
-            else:
-                if self.current_controller == "joint_trajectory_controller":
-                    result = self.switch_controller('twist_controller', 'joint_trajectory_controller')
-                    self.get_logger().info(result)
+            # else:
+            #     if self.current_controller == "joint_trajectory_controller":
+            #         result = self.switch_controller('twist_controller', 'joint_trajectory_controller')
+            #         self.get_logger().info(result)
+        else:
+            self.publish = False
 
 
 def main(args=None):

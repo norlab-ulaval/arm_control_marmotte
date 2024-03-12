@@ -1,0 +1,14 @@
+<launch>
+    <include file="$(find-pkg-share kinova_gen3_7dof_robotiq_2f_85_moveit_config)/launch/robot.launch.py">
+        <arg name="robot_ip" value="192.168.5.111"/>
+    </include>
+    <node pkg="joy" exec="joy_node" name="joy_node" output="screen">
+        <param name="device_name" value="Logitech Gamepad F710"/>
+        <remap from="/joy" to="/joy_arm"/>
+    </node>
+    <node pkg="arm_control_marmotte" exec="arm_control_node" name="arm_control_node" output="screen">
+        <remap from="/joy_topic" to="/joy_arm"/>
+        <remap from="/joint_cmd" to="/joint_trajectory_controller/joint_trajectory"/>
+        <remap from="/twist_cmd" to="/twist_controller/commands"/>
+    </node>
+</launch>
