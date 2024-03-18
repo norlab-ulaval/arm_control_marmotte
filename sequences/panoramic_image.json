@@ -1,0 +1,190 @@
+{
+    "positions": 
+    [
+        {
+            "type": "joints",
+            "reference": "absolute",
+            "value": [0.0, 281.83,  176.77, 225.53,  356.14, 326.32, 90.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        },
+        {
+            "type": "joints",
+            "reference": "relative",
+            "value": [10.0, 0.0,  0.0, 0.0,  0.0, 0.0, 0.0] 
+        }
+    ]
+}

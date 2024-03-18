@@ -47,6 +47,7 @@ sequence_files = {
     'grab_dumbbell': root+"/sequences/grab_dumbbell.json", 
     'analyze_dumbbell': root+"/sequences/analyze_dumbbell.json", 
     'open_door': root+"/sequences/open_door.json",
+    'panoramic_image': root+"/sequences/panoramic_image.json",
     'test_sequence': root+"/sequences/test_sequence.json"  
     }
 position_files = {
@@ -60,8 +61,8 @@ position_files = {
 }
 # viewpoint_joint_state = [195.89, 168.79, 47.21, 185.70, 65.55, 139.11]
 # dumbell_joint_state = [189.1484, 261.7324,  58.8002, 155.5835,  33.3919, 103.7543]
-home_joint_angles = [90.0, 0.0, 180.0, 215.0, 0.0, 52.5, 90.0]
-retract_pose_joint_angles = [90.0, 330.0, 180.0, 215.0, 0.0, 305.0, 90.0]
+home_joint_angles = [0.0, 0.0, 180.0, 215.0, 0.0, 52.5, 90.0]
+retract_pose_joint_angles = [0.0, 330.0, 180.0, 215.0, 0.0, 305.0, 90.0]
 test_cartesian_pose = [0.1, -0.45, 0.55, -90.0, -180.0, 180.0]
 reach_test_pose = [90.0, 90.0, 180.0, 0.0, 0.0, 0.0, 90.0]
 table_test_pose = [90.0, 30.0, 180.0, -35.0, 0.0, -115.0, 90.0]
@@ -458,8 +459,8 @@ class ArmControlNode():
                 self.send_cartesian_pose(test_cartesian_pose, 'tool')
             elif msg.buttons[0]:    # A
                 self.cartesian_deadman = False
-                rospy.loginfo("Starting test sequence")
-                self.execute_sequence('test_sequence')
+                rospy.loginfo("Starting panoramic sequence")
+                self.execute_sequence('panoramic_image')
             elif msg.buttons[1]:    # B
                 self.cartesian_deadman = False
                 _ = self.send_joint_angles(stair_test_pose)
