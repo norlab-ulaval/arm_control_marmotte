@@ -47,7 +47,7 @@ sequence_files = {
     'grab_dumbbell': root+"/sequences/grab_dumbbell.json", 
     'analyze_dumbbell': root+"/sequences/analyze_dumbbell.json", 
     'open_door': root+"/sequences/open_door.json",
-    'panoramic_image': root+"/sequences/panoramic_image.json",
+    'panoramic_image': root+"/sequences/panoramic_image_2.json",
     'test_sequence': root+"/sequences/test_sequence.json"  
     }
 position_files = {
@@ -238,7 +238,7 @@ class ArmControlNode():
 
         # Initialize Waypoint and WaypointList
         waypoint.oneof_type_of_waypoint.cartesian_waypoint.append(cartesianWaypoint)
-        trajectory.duration = 0
+        trajectory.duration = 10
         trajectory.use_optimal_blending = True
         trajectory.waypoints.append(waypoint)
         try:
@@ -278,12 +278,12 @@ class ArmControlNode():
 
         # Each AngularWaypoint needs a duration and the global duration (from WaypointList) is disregarded. 
         # If you put something too small (for either global duration or AngularWaypoint duration), the trajectory will be rejected.
-        angular_duration = 0
+        angular_duration = 5
         angularWaypoint.duration = angular_duration
 
         # Initialize Waypoint and WaypointList
         waypoint.oneof_type_of_waypoint.angular_waypoint.append(angularWaypoint)
-        trajectory.duration = 0
+        trajectory.duration = 5
         trajectory.use_optimal_blending = False
         trajectory.waypoints.append(waypoint)
 
@@ -296,7 +296,7 @@ class ArmControlNode():
         error_number = len(res.output.trajectory_error_report.trajectory_error_elements)
         MAX_ANGULAR_DURATION = 30
 
-        while (error_number >= 1 and angular_duration != MAX_ANGULAR_DURATION) :
+        while (error_number >= 1 and angular_duration <= MAX_ANGULAR_DURATION) :
             angular_duration += 1
             trajectory.waypoints[0].oneof_type_of_waypoint.angular_waypoint[0].duration = angular_duration
 
@@ -308,7 +308,7 @@ class ArmControlNode():
 
             error_number = len(res.output.trajectory_error_report.trajectory_error_elements)
 
-        if (angular_duration == MAX_ANGULAR_DURATION) :
+        if (angular_duration > MAX_ANGULAR_DURATION) :
             # It should be possible to reach position within 30s
             # WaypointList is invalid (other error than angularWaypoint duration)
             rospy.loginfo("WaypointList is invalid")
@@ -359,27 +359,27 @@ class ArmControlNode():
             if success:
                 if position["type"] == "joints":
                     if position["reference"] == "relative":
-                        self.send_joint_angles(self.current_joint_angles + position["value"])
+                        success = self.send_joint_angles(self.current_joint_angles + position["value"])
                     elif position["reference"] == "absolute":
                         success = self.send_joint_angles(position["value"])
         
                 elif position["type"] == "cartesian":
                     if position["reference"] == "relative":
-                        self.move_cartesian(position["value"], 'tool')
+                        success = self.move_cartesian(position["value"], 'tool')
                     elif position["reference"] == "absolute":
-                        self.move_cartesian(position["value"], 'base')
+                        success = self.move_cartesian(position["value"], 'base')
         
                 elif position["type"] == "gripper":
                     if position["reference"] == "relative":
                         rospy.logerr("Relative position not supported in gripper mode.")
                     elif position["reference"] == "absolute":
-                        self.move_gripper(position["value"])
+                        success = self.move_gripper(position["value"])
             if success:
                 print("Position {} achieved.".format(i))
             else:
                 print("Failed to complete sequence")
                 return False
-            time.sleep(0.5)
+            #time.sleep(0.5)
         return True
 
     def joy_callback(self, msg):

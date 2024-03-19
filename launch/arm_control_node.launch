@@ -19,8 +19,8 @@
 
         <node name="arm_control_marmotte" pkg="arm_control_marmotte" type="arm_control_node.py" output="screen">
             <param name="group_name" value="$(arg group)"/>
-            <param name="cartesian_speed_ratio" value="0.1"/>
-            <param name="joint_speed_ratio" value="0.4"/>
+            <param name="cartesian_speed_ratio" value="0.3"/>
+            <param name="joint_speed_ratio" value="0.5"/>
         </node>
         <!-- Start joint and robot state publisher -->
         <param name="robot_description" command="$(find xacro)/xacro --inorder $(find kortex_description)/robots/$(arg arm)_$(arg gripper).xacro dof:=7 vision:=true sim:=false"/>
