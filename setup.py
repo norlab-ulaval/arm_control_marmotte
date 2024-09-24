@@ -15,7 +15,8 @@ setup(
         # Include all launch files.
         (os.path.join('share', package_name), glob('launch/*launch.[pxy][yma]*')),
         # Include all param files
-        (os.path.join('share', package_name), glob('sequences/*'))
+        (os.path.join('share', package_name), glob('sequences/*')),
+        (os.path.join('share', package_name), glob('config/*'))
     ],
     install_requires=['setuptools', 'kortex_bringup', 'rclpy'],
     maintainer='William Dubois',
@@ -25,6 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             'arm_control_node = arm_control_marmotte.arm_control_node:main',
+            'scanning_node = arm_control_marmotte.scanning_node:main',
         ],
     },
 )

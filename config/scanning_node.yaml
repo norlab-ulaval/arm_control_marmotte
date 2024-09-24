@@ -1,0 +1,7 @@
+/**:
+  scanning_node:
+    ros__parameters:
+      joint_topic: "joint_trajectory_controller/joint_trajectory"
+      joy_topic: "joy"
+      home_button: 7
+      viewpoint_button: 6
