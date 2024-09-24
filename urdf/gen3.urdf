@@ -4,7 +4,6 @@
 <!-- |    EDITING THIS FILE BY HAND IS NOT RECOMMENDED                                 | -->
 <!-- =================================================================================== -->
 <robot name="gen3">
-    <link name="world"/>
     <ros2_control name="KortexMultiInterfaceHardware" type="system">
         <hardware>
             <plugin>kortex_driver/KortexMultiInterfaceHardware</plugin>
@@ -132,12 +131,12 @@
             <state_interface name="velocity"/>
         </joint>
     </ros2_control>
-    <joint name="base_joint" type="fixed">
-        <origin rpy="0 0 0" xyz="0 0 0"/>
-        <parent link="world"/>
-        <child link="base_link"/>
+    <joint name="gen3_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="-0.13186 0.0 0.320675"/>
+        <parent link="base_link"/>
+        <child link="gen3_link"/>
     </joint>
-    <link name="base_link">
+    <link name="gen3_link">
         <inertial>
             <origin rpy="0 0 0" xyz="-0.000648 -0.000166 0.084487"/>
             <mass value="1.697"/>
@@ -183,7 +182,7 @@
     </link>
     <joint name="joint_1" type="continuous">
         <origin rpy="3.1416 2.7629E-18 -4.9305E-36" xyz="0 0 0.15643"/>
-        <parent link="base_link"/>
+        <parent link="gen3_link"/>
         <child link="shoulder_link"/>
         <axis xyz="0 0 1"/>
         <limit effort="39" velocity="1.3963"/>
@@ -335,14 +334,14 @@
     </joint>
     <link name="bracelet_link">
         <inertial>
-            <origin rpy="0 0 0" xyz="-9.3E-05 0.000132 -0.022905"/>
-            <mass value="0.364"/>
-            <inertia ixx="0.000214" ixy="0" ixz="1E-06" iyy="0.000223" iyz="-2E-06" izz="0.00024"/>
+            <origin rpy="0 0 0" xyz="0.000281 0.011402 -0.029798"/>
+            <mass value="0.5"/>
+            <inertia ixx="0.000587" ixy="3E-06" ixz="3E-06" iyy="0.000369" iyz="-0.000118" izz="0.000609"/>
         </inertial>
         <visual>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="file:///opt/ros/humble/share/kortex_description/arms/gen3/7dof/meshes/bracelet_no_vision_link.STL"/>
+                <mesh filename="file:///opt/ros/humble/share/kortex_description/arms/gen3/7dof/meshes/bracelet_with_vision_link.STL"/>
             </geometry>
             <material name="">
                 <color rgba="0.75294 0.75294 0.75294 1"/>
@@ -351,7 +350,7 @@
         <collision>
             <origin rpy="0 0 0" xyz="0 0 0"/>
             <geometry>
-                <mesh filename="file:///opt/ros/humble/share/kortex_description/arms/gen3/7dof/meshes/bracelet_no_vision_link.STL"/>
+                <mesh filename="file:///opt/ros/humble/share/kortex_description/arms/gen3/7dof/meshes/bracelet_with_vision_link.STL"/>
             </geometry>
         </collision>
     </link>
@@ -368,6 +367,24 @@
         <parent link="bracelet_link"/>
         <child link="end_effector_link"/>
         <axis xyz="0 0 0"/>
+    </joint>
+    <link name="camera_link"/>
+    <joint name="camera_module" type="fixed">
+        <origin rpy="3.141592653589793 3.141592653589793 0" xyz="0 0.05639 -0.00305"/>
+        <parent link="end_effector_link"/>
+        <child link="camera_link"/>
+    </joint>
+    <link name="camera_depth_frame"/>
+    <joint name="depth_module" type="fixed">
+        <origin rpy="3.141592653589793 3.141592653589793 0" xyz="0.0275 0.066 -0.00305"/>
+        <parent link="end_effector_link"/>
+        <child link="camera_depth_frame"/>
+    </joint>
+    <link name="camera_color_frame"/>
+    <joint name="color_module" type="fixed">
+        <origin rpy="3.141592653589793 3.141592653589793 0" xyz="0 0.05639 -0.00305"/>
+        <parent link="end_effector_link"/>
+        <child link="camera_color_frame"/>
     </joint>
     <link name="robotiq_85_base_link">
         <visual>
