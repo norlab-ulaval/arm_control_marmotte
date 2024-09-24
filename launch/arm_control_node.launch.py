@@ -13,7 +13,7 @@ def generate_launch_description():
     share_folder = get_package_share_directory("arm_control_marmotte")
 
     # Arm Control
-    arm_config = os.path.join(share_folder, "scanning_node.yaml")
+    arm_config = os.path.join(share_folder, 'config', "scanning_node.yaml")
     scanning_node = Node(
         package="arm_control_marmotte",
         executable="scanning_node",
@@ -23,6 +23,8 @@ def generate_launch_description():
     
     # Kortex Driver
     kortex_launch_file = os.path.join(get_package_share_directory('kortex_bringup'), 'launch', 'gen3.launch.py')
+    controllers_config = os.path.join(share_folder, 'config', 'ros_controllers.yaml')
+    urdf_file = os.path.join(share_folder, 'urdf', 'gen3.urdf')
     kortex_driver = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([kortex_launch_file]),
         launch_arguments={
@@ -30,9 +32,21 @@ def generate_launch_description():
             "robot_ip": "192.168.5.111",
             "dof": "7",
             "use_fake_hardware": "false",
+            "controllers_file": controllers_config,
+            "robot_controller": "joint_trajectory_controller",
             "launch_rviz": "false",
+            "description_file": urdf_file,
         }.items()
     )
+    # kortex_launch_file = os.path.join(get_package_share_directory('kinova_gen3_7dof_robotiq_2f_85_moveit_config'), 'launch', 'robot.launch.py')
+    # kortex_driver = IncludeLaunchDescription(
+    #     PythonLaunchDescriptionSource([kortex_launch_file]),
+    #     launch_arguments={
+    #         "robot_ip": "192.168.5.111",
+    #         "use_fake_hardware": "false",
+    #         "launch_rviz": "false",
+    #     }.items()
+    # )
 
     # Kinova Gen3 camera
     vision_launch_file = os.path.join(get_package_share_directory('kinova_vision'), 'launch', 'kinova_vision.launch.py')

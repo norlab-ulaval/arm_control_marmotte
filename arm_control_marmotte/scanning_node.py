@@ -10,14 +10,15 @@ from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 from control_msgs.action import GripperCommand
 from control_msgs.msg import GripperCommand as GripperCommandMsg
 from controller_manager_msgs.srv import SwitchController
+from sensor_msgs.msg import JointState
+import math
+from copy import deepcopy
 
 # Joint points declaration
 home_joint_point = JointTrajectoryPoint()
 home_joint_point.positions = [0.0, 0.262, -3.14159, -2.269, 0.0, 0.96, 1.571]
-home_joint_point.time_from_start.sec = 5
 viewpoint_joint_point = JointTrajectoryPoint()
 viewpoint_joint_point.positions = [0.0, -1.4, -3.14, -2.44, 0.0, -0.49, 1.568]
-viewpoint_joint_point.time_from_start.sec = 5
 joint_names = ['joint_1', 'joint_2', 'joint_3', 'joint_4', 'joint_5', 'joint_6', 'joint_7']
 
 '''
@@ -54,40 +55,74 @@ class ScanningNode(Node):
         # Parameters
         joint_topic = self.declare_parameter("joint_topic", "joint_trajectory_controller/joint_trajectory").value
         joy_topic = self.declare_parameter("joy_topic", "joy").value
-        self.home_button = self.declare_parameter("home_button", 7).value
-        self.viewpoint_button = self.declare_parameter("viewpoint_button", 6).value
-        self.angle_step = self.declare_parameter("angle_step", 1.047).value
+        self.declare_parameter("home_button", 7)
+        self.declare_parameter("viewpoint_button", 6)
+        self.declare_parameter("angle_step", 1.047)
+        self.declare_parameter("angular_velocity", 1.0)
+
+        self.update_parameters()
 
         # Messages
         self.joint_msg = JointTrajectory()
         self.joint_msg.joint_names = joint_names
+        self.current_joint_positions = [0.0] * len(joint_names)
 
         # Publishers/Subscribers
         self.joint_pub_ = self.create_publisher(JointTrajectory, joint_topic, 10)
         self.joy_sub = self.create_subscription(Joy, joy_topic, self.joy_callback, 10)
+        self.joint_state_sub = self.create_subscription(JointState, "joint_states", self.joint_state_callback, 10)  # Subscribe to joint states
 
+        # Timer for dynamic parameters
+        self.create_timer(2.0, self.update_parameters)
+
+        # Debounce for buttons
+        self.debounce_time = 0.2
+        self.last_button_press = time.time()
+
+        # Home the arm
         self.home_arm()
 
     def home_arm(self):
-        self.joint_msg.points = [home_joint_point]
+        self.get_logger().info("Homing the arm...")
+        self.joint_msg.points = [deepcopy(home_joint_point)]
+        self.compute_trajectory_time(self.joint_msg.points[0])
         self.publish_joint_command()
 
     def move_to_viewpoint(self):
-        self.joint_msg.points = [viewpoint_joint_point]
+        self.get_logger().info("Moving to viewpoint...")
+        self.joint_msg.points = [deepcopy(viewpoint_joint_point)]
+        self.compute_trajectory_time(self.joint_msg.points[0])
+        self.publish_joint_command()
+        
+    def rotate_camera(self, direction):
+        self.get_logger().info(f"Turning {direction}...")
+        new_angle = self.current_joint_positions[0]
+        if direction == "left":
+            new_angle -= self.angle_step
+        elif direction == "right":
+            new_angle += self.angle_step
+
+        self.joint_msg.points[0].positions[0] = new_angle
+        self.compute_trajectory_time(self.joint_msg.points[0])
         self.publish_joint_command()
 
-    def rotate_camera(self, direction):
-        print(self.joint_msg.points)
-        if direction == "left":
-            self.joint_msg.points[0].positions[0] += self.angle_step
-        elif direction == "right":
-            self.joint_msg.points[0].positions[0] -= self.angle_step
-        self.publish_joint_command()
+    def compute_trajectory_time(self, points):
+        max_diff = max(abs(self.wrap_to_pi(current - desired)) for current, desired in zip(self.current_joint_positions, points.positions))
+        required_time = max_diff / self.angular_velocity
+        points.time_from_start.sec = int(required_time)
+        points.time_from_start.nanosec = int((required_time - int(required_time)) * 1e9)
+
+    def wrap_to_pi(self, angle):
+        return (angle + math.pi) % (2 * math.pi) - math.pi
 
     def publish_joint_command(self):
         self.joint_pub_.publish(self.joint_msg)
 
     def joy_callback(self, msg):
+
+        if time.time() - self.last_button_press < self.debounce_time:
+            return
+
         # Start Button (for homing)
         if msg.buttons[self.home_button]:
             self.home_arm()
@@ -101,6 +136,21 @@ class ScanningNode(Node):
 
         elif msg.axes[6] > 0.5:
             self.rotate_camera("left")
+
+        self.last_button_press = time.time()
+
+    def joint_state_callback(self, msg):
+        # Update current joint positions with feedback from joint states
+        for i, name in enumerate(self.joint_msg.joint_names):
+            if name in msg.name:
+                index = msg.name.index(name)
+                self.current_joint_positions[i] = msg.position[index]
+
+    def update_parameters(self):
+        self.home_button = self.get_parameter("home_button").value
+        self.viewpoint_button = self.get_parameter("viewpoint_button").value
+        self.angle_step = self.get_parameter("angle_step").value
+        self.angular_velocity = self.get_parameter("angular_velocity").value
 
 
 def main(args=None):

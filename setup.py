@@ -13,10 +13,11 @@ setup(
          ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         # Include all launch files.
-        (os.path.join('share', package_name), glob('launch/*launch.[pxy][yma]*')),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*launch.[pxy][yma]*')),
         # Include all param files
-        (os.path.join('share', package_name), glob('sequences/*')),
-        (os.path.join('share', package_name), glob('config/*'))
+        (os.path.join('share', package_name, 'sequences'), glob('sequences/*')),
+        (os.path.join('share', package_name, 'config'), glob('config/*')),
+        (os.path.join('share', package_name, 'urdf'), glob('urdf/*')),
     ],
     install_requires=['setuptools', 'kortex_bringup', 'rclpy'],
     maintainer='William Dubois',
