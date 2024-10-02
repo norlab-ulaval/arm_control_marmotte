@@ -34,6 +34,7 @@ def generate_launch_description():
             "use_fake_hardware": "false",
             "controllers_file": controllers_config,
             "robot_controller": "joint_trajectory_controller",
+            # "robot_controller": "twist_controller",
             "launch_rviz": "false",
             "description_file": urdf_file,
         }.items()
@@ -61,14 +62,21 @@ def generate_launch_description():
             "color_camera_info_url": "",
             "depth_camera_info_url": "",
             "launch_color": "true",
-            "launch_depth": "false",
+            "launch_depth": "true",
             "max_color_pub_rate": "15.0",
             "max_depth_pub_rate": "15.0"
         }.items()
+    )
+
+    # OAK-D camera
+    oakd_launch_file = os.path.join(share_folder, 'launch', 'oakd_camera.launch.py')
+    oakd_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([oakd_launch_file]),
     )
     
     return LaunchDescription([
         kortex_driver,
         kinova_vision,
+        oakd_launch,
         scanning_node
     ])
