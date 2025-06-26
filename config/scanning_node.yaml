@@ -6,4 +6,4 @@
       home_button: 7
       viewpoint_button: 6
       angle_step: 1.047
-      angular_velocity: 0.8
+      angular_velocity: 0.6

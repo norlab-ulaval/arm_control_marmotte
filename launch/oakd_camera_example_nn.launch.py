@@ -13,7 +13,7 @@ def launch_setup(context, *args, **kwargs):
     namespace = LaunchConfiguration('oakd_ns').perform(context)
 
     share_folder = get_package_share_directory('arm_control_marmotte')
-    config_file = os.path.join(share_folder, "config", "camera.yaml")
+    config_file = os.path.join(share_folder, "config", "camera_nn.yaml")
 
     oakd_node = ComposableNodeContainer(
             name="depthai_container",
@@ -25,7 +25,10 @@ def launch_setup(context, *args, **kwargs):
                     package="depthai_ros_driver",
                     plugin="depthai_ros_driver::Camera",
                     name=namespace,
-                    parameters=[config_file],
+                    parameters=[
+                        config_file,
+                        {"nn.i_nn_config_path": os.path.join(share_folder, "config", "yolov6_example.json")},
+                    ],
                 ),
                 ComposableNode(
                     package="image_proc",
@@ -40,6 +43,13 @@ def launch_setup(context, *args, **kwargs):
                         ("image_rect/compressedDepth", "rgb/image_rect/compressedDepth"),
                         ("image_rect/theora", "rgb/image_rect/theora"),
                     ],
+                ),
+                ComposableNode(
+                    package="depthai_filters",
+                    name="detection_overlay",
+                    plugin="depthai_filters::Detection2DOverlay",
+                    namespace=namespace,
+                    parameters=[config_file],
                 ),
             ],
             arguments=["--ros-args", "--log-level", "info"],

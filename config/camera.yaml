@@ -2,13 +2,14 @@
   ros__parameters:
     camera:
       i_enable_imu: false
-      i_enable_ir: false
+      i_enable_ir: true
       i_nn_type: none
-      i_pipeline_type: RGB
+      i_pipeline_type: RGBD
       i_usb_speed: SUPER_PLUS
     rgb:
-      i_enable_preview: false
-      i_preview_size: 10
+      i_enable_preview: true
+      i_preview_height: 240
+      i_preview_width: 400
       i_enable_nn: false
       i_max_q_size: 1
       i_low_bandwidth: true
@@ -23,6 +24,17 @@
       r_set_man_focus: true
       r_focus: 0
     left:
-      i_disable_node: true
+      i_disable_node: false
+      i_fps: 10.0
+      i_resolution: 720P
+      i_publish_topic: true
     right:
-      i_disable_node: true
+      i_disable_node: false
+      i_fps: 10.0
+      i_resolution: 720P
+      i_publish_topic: true
+    stereo:
+      i_align_depth: true
+    tof:
+      i_publish_topic: true
+      i_fps: 10.0
